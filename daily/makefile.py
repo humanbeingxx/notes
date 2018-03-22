@@ -4,5 +4,5 @@ import os,shutil
 
 cur_path = os.getcwd()
 
-for i in range(2,32):
-    shutil.copy("daily/2018-03-01.md", "daily/2018-03-%02d.md" % i)
+for i in range(2,31):
+    shutil.copy("daily/2018-04-01.md", "daily/2018-04-%02d.md"% i)
