@@ -1,4 +1,6 @@
-# sort
+# 各种命令
+
+## sort
 
 sort [-bcfMnrtk][源文件][-o 输出文件]
 补充说明：sort可针对文本文件的内容，以行为单位来排序。
@@ -15,3 +17,7 @@ sort [-bcfMnrtk][源文件][-o 输出文件]
 
 文件按时间排序
 ls -ltr
+
+## rsync
+
+rsync -rzcv --delete --chmod='a=rX,u+w' --rsync-path='sudo rsync' 项目目录/* 机器名:web应用目录/webapps/ROOT --exclude=.svn --exclude=.git --temp-dir=/tmp
