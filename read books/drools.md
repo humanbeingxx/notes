@@ -29,3 +29,5 @@ kmodule文件中如果有两个session的default=true，则使用时拿不到def
 #### forward chaining && backward chaining
 
 #### KRR (knowledge representation and reasoning)
+
+#### rete算法(drools5.x)
