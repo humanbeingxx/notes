@@ -1,5 +1,11 @@
 # NOTES
 
+## session
+
+### marshall？
+
+### StatelessSession
+
 ## 相关概念
 
 ### OptaPlanner
@@ -11,3 +17,7 @@
 #### 模拟退火
 
 #### 延迟接受
+
+#### LHS RHS
+
+#### 什么是event和fact？
