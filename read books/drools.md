@@ -62,6 +62,24 @@ issue id card | beijing | p | p
 
 *如果同时使用决策表和drl文件，kmodule中需要将base配置成不同的packages，否则用drls时会报NPE*
 
+#### 使用决策表遇到的问题
+
+##### 配置了xls，怎么加载为规则？
+
+drools会自动加载classpath下的xls作为规则，需要在xml中配置package（不配置则是默认）。
+
+##### kmodule.xml中配置了session，为什么规则加载不进去？
+
+和session配置中的package有关。package要写成文件所在路径。比如在resources下的rules中，则写成"rules"。
+xls中的RuleSet也是package，但是和xml中的package没有关系。
+RuleSet的package，是这个规则运行时所在的java package。可以直接使用该package下的class。
+RuleSet可以为空，需要用到的类全部可用import加载进来。
+
+##### 最初加载报各种异常的问题
+
+看的UserGuide是6.x版本的，但是drools引用的是RELEASE，是7.x。不兼容。
+换成6.x的drools后，ClassNotFound，原因是需要手动引入decisionTable这个依赖。
+
 ## 相关概念
 
 ### OptaPlanner
