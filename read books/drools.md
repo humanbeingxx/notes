@@ -80,6 +80,27 @@ RuleSet可以为空，需要用到的类全部可用import加载进来。
 看的UserGuide是6.x版本的，但是drools引用的是RELEASE，是7.x。不兼容。
 换成6.x的drools后，ClassNotFound，原因是需要手动引入decisionTable这个依赖。
 
+##### 决策表格式问题
+
+下面的表是我测试用的
+
+CONDITION | CONDITION | ACTION
+---------|----------|---------
+person:Person | person:Person | person:Person
+age | gender | person.setColor("$param");
+17 | male | red
+17 | female | pink
+19 | male | black
+19 | female | purle
+
+- 遇到的第一个问题：person.setColor("$param")不加分号，提示这里必须是一个boolean类型的表达式。加上分号，提示找不到@positional field。各种尝试后，发现需要将前两行的person:Person合并成一个单元格。。。**具体原理还不知道**
+- 遇到的第二个问题：规则第一行不生效。xls的格式可能是固定的。age这个下面必须是注释。变成了
+
+age | gender | person.setColor("$param");
+---------|----------|---------
+必须是注释 | 必须是注释 | 必须是注释
+17 | male | red
+
 ## 相关概念
 
 ### OptaPlanner
