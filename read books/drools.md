@@ -62,6 +62,45 @@ issue id card | beijing | p | p
 
 *如果同时使用决策表和drl文件，kmodule中需要将base配置成不同的packages，否则用drls时会报NPE*
 
+#### 使用决策表遇到的问题
+
+##### 配置了xls，怎么加载为规则？
+
+drools会自动加载classpath下的xls作为规则，需要在xml中配置package（不配置则是默认）。
+
+##### kmodule.xml中配置了session，为什么规则加载不进去？
+
+和session配置中的package有关。package要写成文件所在路径。比如在resources下的rules中，则写成"rules"。
+xls中的RuleSet也是package，但是和xml中的package没有关系。
+RuleSet的package，是这个规则运行时所在的java package。可以直接使用该package下的class。
+RuleSet可以为空，需要用到的类全部可用import加载进来。
+
+##### 最初加载报各种异常的问题
+
+看的UserGuide是6.x版本的，但是drools引用的是RELEASE，是7.x。不兼容。
+换成6.x的drools后，ClassNotFound，原因是需要手动引入decisionTable这个依赖。
+
+##### 决策表格式问题
+
+下面的表是我测试用的
+
+CONDITION | CONDITION | ACTION
+---------|----------|---------
+person:Person | person:Person | person:Person
+age | gender | person.setColor("$param");
+17 | male | red
+17 | female | pink
+19 | male | black
+19 | female | purle
+
+- 遇到的第一个问题：person.setColor("$param")不加分号，提示这里必须是一个boolean类型的表达式。加上分号，提示找不到@positional field。各种尝试后，发现需要将前两行的person:Person合并成一个单元格。。。**具体原理还不知道**
+- 遇到的第二个问题：规则第一行不生效。xls的格式可能是固定的。age这个下面必须是注释。变成了
+
+age | gender | person.setColor("$param");
+---------|----------|---------
+必须是注释 | 必须是注释 | 必须是注释
+17 | male | red
+
 ## 相关概念
 
 ### OptaPlanner
