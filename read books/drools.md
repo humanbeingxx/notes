@@ -151,15 +151,64 @@ age | gender | person.setColor("$param");
 
 ## KieRuntime相关
 
-### EntryPoint
-
-#### insert
+### insert
 
 *为什么用insert这个关键词？ 因为assert这个是大多数语言的关键词*
 
 插入Working Memory时，有两种断言模式：
 Identity 使用IdentityHashMap，对象比较使用 ==
 Equality 使用HashMap，对象使用equal和hashcode
+
+### update
+
+对应excel中的modify，能通知WorkingMemory感知到fact的变化。
+
+### query
+
+一种是静态query，一种是动态query(LiveQuery)。
+静态的只要在session中insert或者其他操作，就可以查询；动态query需要执行fireAllRules，才能生效。
+
+### 冲突解决
+
+默认提供两种方式：优先级和LIFO
+
+#### 疑问
+
+drools的冲突是怎么定义的。
+我定义了一个规则，两个相同的条件，不同的action，结果都执行了。
+定义了salience，确实先执行了值大的规则，但是剩下的还是会继续执行。这是应该有的行为吗？能不能只命中一条规则？只命中一条是合理的行为吗？
+
+#### AgendaGroup
+
+- 不显式配置AgendaGroup的rule，默认都在MAIN group中，这个group会默认放在执行栈中。
+- 配置了AgendaGroup的rule，默认是没有focus的，需要代码中调用，或者配置成auto-focus。
+- AgendaGroup的优先级高于salience，同group内salience生效。
+
+同一次insert，fire多次，一个rule只会生效一次。
+
+```java
+session.insert(Person.builder().age(20).build());
+session.fireAllRules();
+
+session.getAgenda().getAgendaGroup("first").setFocus();
+session.fireAllRules();
+
+session.getAgenda().getAgendaGroup("second").setFocus();
+session.fireAllRules();
+
+这段代码，fire了3次，单每次都只有一个rule命中（由于group的控制）
+```
+
+```java
+
+session.insert(Person.builder().age(20).build());
+session.getAgenda().getAgendaGroup("first").setFocus();
+session.getAgenda().getAgendaGroup("second").setFocus();
+
+session.fireAllRules();
+
+使用AgendaGroup时，确实是入栈操作，上面的规则，匹配顺序是second -> first -> MAIN
+```
 
 ## 相关概念
 
