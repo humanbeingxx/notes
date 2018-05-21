@@ -60,7 +60,55 @@ issue id card | beijing | p | p
 
 ### 使用决策表
 
-*如果同时使用决策表和drl文件，kmodule中需要将base配置成不同的packages，否则用drls时会报NPE*
+*如果同时使用决策表和drl文件，kmodule中需要指定决策表的packages，否则用drls时会报NPE*
+
+#### 决策表的几个关键概念
+
+总体分为两个部分，RuleSet部分和RuleTable部分。
+
+**其实所谓的决策表，也就是直接通过语法对应，拼成了一个drl文件**
+
+##### RuleSet区域
+
+关键词 | 可用值 | 作用（未标明的都是非必填）
+---------|----------|---------
+RuleSet | 生成的drl文件的package | 必须是第一行（必填）
+Sequential | true/false | 和salience配合，决定执行顺序
+Import | 同drl的 | -
+Variables | 同drl重的globals | -
+Functions | 定义方法，语法和drl相同 | -
+
+*注意，在RuleSet中设置的属性会影响整个package中的规则。*
+
+##### 决策表翻译成drls BY org.drools.decisiontable.SpreadsheetCompiler
+
+##### CONDITION
+
+CONDITION关键词下的第一行是规则条件的“模式”。合并单元格表示，同时满足这些模式。
+CONDITION关键词下的第一行可以为空，但是第二行必须能单独成为一个条件表达式。
+
+在condition中，可以用逗号分隔参数，引用时使用$1 $2...
+
+##### 什么是forall？在决策表中怎么用？
+
+- [ ] 实际的含义需要等看完语法才能补充
+
+我在excel里面写了个🌰
+CONDITION中有一列是 forall(,){key2 != "$"}，翻译成drls之后是
+
+```drl
+rule "ComplicatedTables_9"
+    salience 65527
+    when
+        $com:ComplicatedUse(key1 == "1", key2 != "a" , key2 != "A")
+    then
+        $com.setResult(1);
+end
+```
+
+其中a和A是配置在excel条件中的，用逗号分隔  a,A
+
+在这个例子中表示的是，key2要同时满足一个单元格中的所有条件。
 
 #### 使用决策表遇到的问题
 
