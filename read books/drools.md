@@ -149,6 +149,18 @@ age | gender | person.setColor("$param");
 必须是注释 | 必须是注释 | 必须是注释
 17 | male | red
 
+## KieRuntime相关
+
+### EntryPoint
+
+#### insert
+
+*为什么用insert这个关键词？ 因为assert这个是大多数语言的关键词*
+
+插入Working Memory时，有两种断言模式：
+Identity 使用IdentityHashMap，对象比较使用 ==
+Equality 使用HashMap，对象使用equal和hashcode
+
 ## 相关概念
 
 ### OptaPlanner
