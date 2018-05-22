@@ -23,36 +23,36 @@ kmodule文件中如果有两个session的default=true，则使用时拿不到def
 
 用一个决策表表示
 
-RuleTableIdCard | RuleTableIdCard | RuleTableIdCard| RuleTableIdCard
----------|----------|---------|--------
------ | condition | condition | action
------ | p:person | p:person | p:person
------ | location | age >= $1 | issueIdCard($1)
------ | select person | select adults | issue id card
-issue id card| beijing | 18 | p
+| RuleTableIdCard | RuleTableIdCard | RuleTableIdCard | RuleTableIdCard |
+| --------------- | --------------- | --------------- | --------------- |
+| -----           | condition       | condition       | action          |
+| -----           | p:person        | p:person        | p:person        |
+| -----           | location        | age >= $1       | issueIdCard($1) |
+| -----           | select person   | select adults   | issue id card   |
+| issue id card   | beijing         | 18              | p               |
 
 问题是如果《民法》规定成年从18变成19，公安部需要同步修改规则。
 这里可以使用inference将18岁的规则抽离。
 
 - 立法部门维护年龄规则
 
-RuleTableAge | RuleTableAge | RuleTableAge
----------|---------|--------
------ | condition | action
------ | p:person | -----
------ | age >= $1 | insert($1)
------ | select adults | adult relation
-issue id card| 18 | newIsAdult(p)
+| RuleTableAge  | RuleTableAge  | RuleTableAge   |
+| ------------- | ------------- | -------------- |
+| -----         | condition     | action         |
+| -----         | p:person      | -----          |
+| -----         | age >= $1     | insert($1)     |
+| -----         | select adults | adult relation |
+| issue id card | 18            | newIsAdult(p)  |
 
 - 公安部维护身份证发放规则
 
-RuleTableIdCard | RuleTableIdCard | RuleTableIdCard | RuleTableIdCard
----------|----------|---------|--------
------ | condition | condition | action
------ | p:person | isAdult | -----
------ | location | person == $1 | issueIdCard($1)
------ | select person | select adults | issue id card
-issue id card | beijing | p | p
+| RuleTableIdCard | RuleTableIdCard | RuleTableIdCard | RuleTableIdCard |
+| --------------- | --------------- | --------------- | --------------- |
+| -----           | condition       | condition       | action          |
+| -----           | p:person        | isAdult         | -----           |
+| -----           | location        | person == $1    | issueIdCard($1) |
+| -----           | select person   | select adults   | issue id card   |
+| issue id card   | beijing         | p               | p               |
 
 ### TMS(Truth Maintenanace System)
 
@@ -70,13 +70,13 @@ issue id card | beijing | p | p
 
 ##### RuleSet区域
 
-关键词 | 可用值 | 作用（未标明的都是非必填）
----------|----------|---------
-RuleSet | 生成的drl文件的package | 必须是第一行（必填）
-Sequential | true/false | 和salience配合，决定执行顺序
-Import | 同drl的 | -
-Variables | 同drl重的globals | -
-Functions | 定义方法，语法和drl相同 | -
+| 关键词     | 可用值                  | 作用（未标明的都是非必填）   |
+| ---------- | ----------------------- | ---------------------------- |
+| RuleSet    | 生成的drl文件的package  | 必须是第一行（必填）         |
+| Sequential | true/false              | 和salience配合，决定执行顺序 |
+| Import     | 同drl的                 | -                            |
+| Variables  | 同drl重的globals        | -                            |
+| Functions  | 定义方法，语法和drl相同 | -                            |
 
 *注意，在RuleSet中设置的属性会影响整个package中的规则。*
 
@@ -132,22 +132,22 @@ RuleSet可以为空，需要用到的类全部可用import加载进来。
 
 下面的表是我测试用的
 
-CONDITION | CONDITION | ACTION
----------|----------|---------
-person:Person | person:Person | person:Person
-age | gender | person.setColor("$param");
-17 | male | red
-17 | female | pink
-19 | male | black
-19 | female | purle
+| CONDITION     | CONDITION     | ACTION                     |
+| ------------- | ------------- | -------------------------- |
+| person:Person | person:Person | person:Person              |
+| age           | gender        | person.setColor("$param"); |
+| 17            | male          | red                        |
+| 17            | female        | pink                       |
+| 19            | male          | black                      |
+| 19            | female        | purle                      |
 
 - 遇到的第一个问题：person.setColor("$param")不加分号，提示这里必须是一个boolean类型的表达式。加上分号，提示找不到@positional field。各种尝试后，发现需要将前两行的person:Person合并成一个单元格。。。**具体原理还不知道**
 - 遇到的第二个问题：规则第一行不生效。xls的格式可能是固定的。age这个下面必须是注释。变成了
 
-age | gender | person.setColor("$param");
----------|----------|---------
-必须是注释 | 必须是注释 | 必须是注释
-17 | male | red
+| age        | gender     | person.setColor("$param"); |
+| ---------- | ---------- | -------------------------- |
+| 必须是注释 | 必须是注释 | 必须是注释                 |
+| 17         | male       | red                        |
 
 ## KieRuntime相关
 
@@ -178,7 +178,7 @@ drools的冲突是怎么定义的。
 我定义了一个规则，两个相同的条件，不同的action，结果都执行了。
 定义了salience，确实先执行了值大的规则，但是剩下的还是会继续执行。这是应该有的行为吗？能不能只命中一条规则？只命中一条是合理的行为吗？
 
-#### AgendaGroup
+#### AgendaGroup && ActivationGroup
 
 - 不显式配置AgendaGroup的rule，默认都在MAIN group中，这个group会默认放在执行栈中。
 - 配置了AgendaGroup的rule，默认是没有focus的，需要代码中调用，或者配置成auto-focus。
@@ -196,7 +196,7 @@ session.fireAllRules();
 session.getAgenda().getAgendaGroup("second").setFocus();
 session.fireAllRules();
 
-这段代码，fire了3次，单每次都只有一个rule命中（由于group的控制）
+这段代码，fire了3次，单每次都只有一个rule命中（由于group的控制）
 ```
 
 ```java
@@ -207,8 +207,85 @@ session.getAgenda().getAgendaGroup("second").setFocus();
 
 session.fireAllRules();
 
-使用AgendaGroup时，确实是入栈操作，上面的规则，匹配顺序是second -> first -> MAIN
+使用AgendaGroup时，确实是入栈操作，上面的规则，匹配顺序是second -> first -> MAIN
 ```
+
+和AgendaGroup不同，同一ActivationGroup中的规则只会有一个命中。
+
+### Event
+
+```java
+session.addEventListener(new DefaultAgendaEventListener() {
+    @Override
+    public void matchCreated(MatchCreatedEvent event) {
+        System.out.println(event.getMatch().getRule().getName());
+    }
+});
+
+session.fireAllRules(new RuleNameMatchesAgendaFilter("Test Event.*"));
+```
+
+这段代码，虽然fire的结果，是只有Test Event 这样的rule才会被匹配，但是在创建match时，其他规则如果能匹配上，事件也会发生。
+也就是说，filter只是对结果做了过滤，对执行过程并没有。
+
+- [] 会不会存在“随着规则的增多，执行效率下降”的问题？
+
+### Propagation modes
+
+举个🌰
+
+drools中允许在rule中使用query
+
+```drls
+// 存在一个string和给定的int的字符串值相等
+query Q (Integer i)
+    String( this == i.toString() )
+end
+
+rule "propagation_mode_immediate" @Propagation(IMMEDIATE)
+
+// 对一个int i，存在一个string和i的字符串值相等
+when
+    $i : Integer()
+    ?Q ($i;)
+then
+    System.out.println("propagation_mode_immediate rule firing");
+end
+```
+
+下面是使用方式
+
+```java
+session.insert(1);
+session.insert("1");
+session.fireAllRules();
+```
+
+在passive mode中，无法感知到后插入的"1"，因而，按照理解这个规则是不应该命中的。
+但由于PHREAK算法的lazy模式，导致无法区分两个fact的插入顺序，规则会命中（调整int和string的插入顺序，仍然会命中）。
+
+通过在rule上加@Propagation解决。
+有三种模式（还是来原文吧）
+
+<table border="1px">
+    <tr>
+      <th bgcolor="0099FF">key</th>
+      <th bgcolor="0099FF">effect</th>
+    </tr>
+    <tr bgcolor="#d4e3e5" onmouseover="this.style.backgroundColor='#ffff66';" onmouseout="this.style.backgroundColor='#d4e3e5';">
+      <td>IMMEDIATE</td>
+      <td>the propagation is performed immediately </td>
+    </tr>
+<tr bgcolor="#d4e3e5" onmouseover="this.style.backgroundColor='#ffff66';" onmouseout="this.style.backgroundColor='#d4e3e5';">
+      <td>EAGER</td>
+      <td>the propagation is performed lazily but eagerly evaluated before scheduled evaluations</td>
+    </tr>
+    </tr>
+<tr bgcolor="#d4e3e5" onmouseover="this.style.backgroundColor='#ffff66';" onmouseout="this.style.backgroundColor='#d4e3e5';">
+      <td>LAZY</td>
+      <td>the propagation is totally lazy and this is default PHREAK behaviour/td>
+    </tr>
+</table>
 
 ## 相关概念
 
@@ -238,3 +315,36 @@ session.fireAllRules();
 命题逻辑处理简单的陈述性命题，一阶逻辑补充覆盖了谓词和量化。
 
  [找了一篇稍微靠谱点的文章](https://blog.csdn.net/dragonszy/article/details/6939782)
+
+
+----------------------------------------------------------------------------------------------------------------
+
+<style type="text/css">
+  table.hovertable {
+    font-family: verdana, arial, sans-serif;
+    font-size: 11px;
+    color: #333333;
+    border-width: 1px;
+    border-color: #999999;
+    border-collapse: collapse;
+  }
+
+  table.hovertable th {
+    background-color: #c3dde0;
+    border-width: 1px;
+    padding: 8px;
+    border-style: solid;
+    border-color: #a9c6c9;
+  }
+
+  table.hovertable tr {
+    background-color: #d4e3e5;
+  }
+
+  table.hovertable td {
+    border-width: 1px;
+    padding: 8px;
+    border-style: solid;
+    border-color: #a9c6c9;
+  }
+</style>
