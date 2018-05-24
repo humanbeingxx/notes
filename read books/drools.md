@@ -287,6 +287,24 @@ session.fireAllRules();
     </tr>
 </table>
 
+加上了@Propagation(IMMEDIATE)或者EAGER后，先int再string，不会命中规则，先string再int会命中规则。
+
+## 语法
+
+### package
+
+package本身是一个命名空间，和文件/目录没有直接关系。drools会自动import相同package中的类。（也会自动导入java.lang）
+
+A common structure is to have all the rules for a package in the same file as the package declaration (so that is it entirely self-contained)
+
+对rule的属性，也可以写在package这一层，会对package下的所有rule生效。可以在rule中再配置，来覆盖package级别的属性。
+
+### global
+
+全局变量不会insert 到 WorkingMemory，不要将global放在condition中。
+规则引擎无法感知global变量的变化。
+不要用global来作为rule之间共享数据的方式。
+
 ## 相关概念
 
 ### OptaPlanner
@@ -315,36 +333,3 @@ session.fireAllRules();
 命题逻辑处理简单的陈述性命题，一阶逻辑补充覆盖了谓词和量化。
 
  [找了一篇稍微靠谱点的文章](https://blog.csdn.net/dragonszy/article/details/6939782)
-
-
-----------------------------------------------------------------------------------------------------------------
-
-<style type="text/css">
-  table.hovertable {
-    font-family: verdana, arial, sans-serif;
-    font-size: 11px;
-    color: #333333;
-    border-width: 1px;
-    border-color: #999999;
-    border-collapse: collapse;
-  }
-
-  table.hovertable th {
-    background-color: #c3dde0;
-    border-width: 1px;
-    padding: 8px;
-    border-style: solid;
-    border-color: #a9c6c9;
-  }
-
-  table.hovertable tr {
-    background-color: #d4e3e5;
-  }
-
-  table.hovertable td {
-    border-width: 1px;
-    padding: 8px;
-    border-style: solid;
-    border-color: #a9c6c9;
-  }
-</style>
