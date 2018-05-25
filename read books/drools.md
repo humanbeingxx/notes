@@ -392,6 +392,57 @@ end
 
 ***尴尬，我写代码试了下，不能重复。而且origin这个位置6，会报out of range，因为是从0开始的***
 
+### rule语法
+
+#### When vs If
+
+if通常是在一个过程中的某个特定的点，来做一些校验。
+when则不会绑定到某个时序的特定点，而是持续性的观察。
+
+#### 重名的危害
+
+相同文件中重名的rule，会抛异常。
+书中说相同package中，后面的rule会覆盖前面重名的rule。但我测试时，即使在不同文件中，仍会跑duplicate错误。
+
+#### salience(默认 0)
+
+可以是负数。
+支持动态传入，例如
+
+```drl
+salience($rank)
+
+when
+    $rank : rank
+then
+    ...
+```
+
+#### agenda-group
+
+参考这一章节 AgendaGroup && ActivationGroup
+
+ActivationGroup中，每次fire，只有至多一条规则会命中。
+
+#### no-loop(默认 false)
+
+当修改了一个fact时，会再次激活rule，可能会导致死循环。no-loop = true时，会听过当前fact集再次触发本rule。
+
+```drl
+rule "Many Rule 2.1"
+no-loop
+
+when
+    $p : Policy(approved == false)
+then
+    System.out.println("approved == false");
+    $p.setApproved(false);
+    update($p)
+end
+```
+
+但是no-loop只能避免再次触发当前的rule，如果是因为其他rule导致的互相触发循环，则控制不住。需要使用lock-on-active true
+
 ## 相关概念
 
 ### OptaPlanner
