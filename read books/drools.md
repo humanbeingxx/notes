@@ -305,6 +305,93 @@ A common structure is to have all the rules for a package in the same file as th
 规则引擎无法感知global变量的变化。
 不要用global来作为rule之间共享数据的方式。
 
+### declare type
+
+声明类型是在知识库编译时生成的，应用程序只能在运行时访问它们。
+使用org.drools.definition.type.FactType来引用声明的类型。
+
+```java
+KieSession session = SessionUtil.getStatefulSession();
+
+org.kie.api.definition.type.FactType factType = session.getKieBase().getFactType(
+        "priv.cxs.drools.usetest.drls.declaration",
+        "Something");
+Object sth = factType.newInstance();
+
+factType.set(sth, "type", "person");
+factType.set(sth, "name", "type_declare_position");
+factType.set(sth, "value", "no position for me");
+
+session.insert(sth);
+
+session.fireAllRules(new RuleNameEqualsAgendaFilter("type_declare_position"));
+```
+
+### meta data
+
+#### @key
+
+将属性声明为关键属性对生成的类型有两个主要影响：
+
+1. 该属性将用作类型的关键标识符，因此，在比较此类型的实例时，生成的类将实现equals（）和hashCode（）方法，并考虑该属性。
+2. 生成一个以@key为参数的构造函数。（编译器将隐含地生成3个构造函数：一个不带参数，一个带有@key字段，另一个带有所有字段。）
+
+#### @position
+
+不指定字段名时，可以使用位置参数。@position规定了参数位置。
+
+使用;来标识之前的全部是位置参数。当处于位置参数模式中时，指定字段会导致匹配失败。
+
+```drl
+declare Something
+    name : String @position(5)
+    type : String @position(1)
+    value : String @position(6)
+end
+
+rule "type_declare_position"
+
+when
+    $sth : Something("person", "type_declare_position", "no position for me";)
+    // 或者 $sth : Something("person", "type_declare_position"; value == "no position for me")
+    // 或者 $sth : Something("person"; value == "no position for me", name =="type_declare_position")
+then
+    System.out.println("type_declare_position fired");
+end
+```
+
+尚未绑定的位置中使用的任何变量都将绑定到映射到该位置的字段。
+如果部分字段绑定位置，部分字段没有绑定，则绑定位置之外的位置，按照声明顺序用其他字段填充，🌰
+
+```drl
+declare Something
+    name : String
+    type : String
+    value : String @position(1)
+end
+顺序是 name, value, type
+```
+
+对于相同的position，按照继承（父类优先）和声明的顺序来排列。🌰
+
+```drl
+declare Cheese
+    name : String
+    shop : String @position(2)
+    price : int @position(0)
+end
+
+declare SeasonedCheese extends Cheese
+    year : Date @position(0)
+    origin : String @position(6)
+    country : String
+end
+
+顺序是 price, year, name, shop, county, origin
+```
+
+***尴尬，我写代码试了下，不能重复。而且origin这个位置6，会报out of range，因为是从0开始的***
+
 ## 相关概念
 
 ### OptaPlanner
