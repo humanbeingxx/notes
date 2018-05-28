@@ -443,6 +443,13 @@ end
 
 但是no-loop只能避免再次触发当前的rule，如果是因为其他rule导致的互相触发循环，则控制不住。需要使用lock-on-active true
 
+#### when
+
+##### Do NOT do this
+
+Person( incrementAndGetAge() == 10 );
+Person( System.currentTimeMillis() % 1000 == 0 );
+
 ## 相关概念
 
 ### OptaPlanner
