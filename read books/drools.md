@@ -450,6 +450,23 @@ end
 Person( incrementAndGetAge() == 10 );
 Person( System.currentTimeMillis() % 1000 == 0 );
 
+需要让drools感知到的变化，都需要显示的update。
+
+##### == !=
+
+Objects.equals(a, b)
+!Objects.equals(a, b)
+
+##### $var($可有可无)
+
+绑定变量
+
+// Not recommended
+Person( $age : age * 2 < 100 )
+
+// Recommended (separates bindings and constraint expressions)
+Person( age * 2 < 100, $age : age )
+
 ## 相关概念
 
 ### OptaPlanner
