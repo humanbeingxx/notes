@@ -467,6 +467,51 @@ Person( $age : age * 2 < 100 )
 // Recommended (separates bindings and constraint expressions)
 Person( age * 2 < 100, $age : age )
 
+##### :=
+
+drools中不允许同一个变量绑定两次。
+但是有的场景确实需要这儿用（还没搞懂什么场景）
+
+Person( $age := age)
+Person( $age := age)
+
+:= 允许变量出现两次，同时变量会绑定到第一次出现的值，同时会用相同的值来约束后面的条件。
+
+$a1 : Applicant($age := age)
+$a2 : Applicant2($age := (age * 2))
+
+这么写功能上等价于
+
+$a1 : Applicant($age := age)
+$a2 : Applicant2((age * 2) == $age)
+
+##### 类型转换
+
+在变量后使用#做转换。转换失败时，条件为false。在使用了instanceof后，如果为true，则后续可以直接当成其他类型使用。
+
+Person( name == "mark", address#LongAddress.country == "uk" )
+Person( name == "mark", address instanceof LongAddress, address.country == "uk" )
+
+##### or 操作符
+
+当or的多个条件都满足时，会发生什么？ -> 最好是当成多个rule来理解。每匹配一个会fire一次。
+
+```drl
+rule "or_fire"
+
+when
+    Applicant(age > 1)
+    or
+    Applicant(age > 2)
+then
+    System.out.println("or fired");
+end
+```
+
+##### exist
+
+和or不同，exist发现满足时，一个rule只会激活一次。
+
 ## 相关概念
 
 ### OptaPlanner
