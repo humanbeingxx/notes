@@ -512,6 +512,43 @@ end
 
 和or不同，exist发现满足时，一个rule只会激活一次。
 
+##### from
+
+from 允许从非working memory中的数据集上进行推断。
+但是每次计算使用的from时都会触发一个新的fact。
+
+文档中给的例子实在是看不懂
+
+```drl
+rule "Assign people in North Carolina (NC) to sales region 1"
+ruleflow-group "test"
+lock-on-active true
+when
+    $p : Person( ) 
+    $a : Address( state == "NC") from $p.address 
+then
+    modify ($p) {} // Assign person to sales region 1 in a modify block
+end
+
+rule "Apply a discount to people in the city of Raleigh"
+ruleflow-group "test"
+lock-on-active true
+when
+    $p : Person( )
+    $a : Address( city == "Raleigh") from $p.address
+then
+    modify ($p) {} // Apply discount to person in a modify block
+end
+```
+
+说是只有第二个规则会被激活，但是实际执行，两个都会激活。当然，为了让规则能执行，我加上了auto-focus true。
+
+- [ ] 对ruleflow，lock-on-active这几个东西的作用还是不太理解。
+
+作者给出的意见是，尽可能将实时插入到working memory中，而不是使用from。
+
+注意，from子句后面不能跟一个括号表达式。因为会被解析成 from $list (xxxx) 这样一个整体。
+
 ## 相关概念
 
 ### OptaPlanner
