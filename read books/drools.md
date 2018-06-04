@@ -549,6 +549,11 @@ end
 
 注意，from子句后面不能跟一个括号表达式。因为会被解析成 from $list (xxxx) 这样一个整体。
 
+### LHS中的难点 from collect accumulate eval
+
+### then
+
+
 ## 相关概念
 
 ### OptaPlanner
