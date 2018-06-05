@@ -554,7 +554,41 @@ end
 ### then
 
 
-## 相关概念
+## examples
+
+### fibonaci
+
+尝试着写了一个
+
+```drl
+
+package priv.cxs.drools.usetest.official.fibo;
+dialect  "mvel"
+
+rule "my_fibonacci"
+when
+    $second : Fibonacci(sequence > 1)
+    $first : Fibonacci(sequence == $second.sequence - 1)
+    $result : Fibonacci(sequence == -99)
+then
+    System.out.println("result" + $result);
+    delete($first);
+    delete($second);
+    insert(new Fibonacci($second.sequence - 1, $first.value))
+    insert(new Fibonacci($first.sequence - 1, $first.value + $second.value))
+    modify($result){setValue($first.value + $second.value)}
+end
+
+```
+
+#### todo
+
+- [ ] 用一个result接收结果，能不能不要这个？
+- [ ] delete不保留会死循环。又必须放在insert前，否则不会递归调用。但是delete后，insert还能继续引用数据，奇怪？
+- [ ] insert也会通知working memory，有数据变化。
+- [ ] 用drl写这种东西，很累。。
+
+## 其他相关概念
 
 ### OptaPlanner
 
