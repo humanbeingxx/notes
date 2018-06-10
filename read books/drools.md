@@ -553,7 +553,6 @@ end
 
 ### then
 
-
 ## examples
 
 ### fibonaci
@@ -588,6 +587,113 @@ end
 - [ ] insert也会通知working memory，有数据变化。
 - [ ] 用drl写这种东西，很累。。
 
+## Event && Complex Event Processing(CEP)
+
+### CLOUD && STREAM
+
+cloud模式中，没有时间概念。
+
+#### 尝试stream的第一发
+
+终于有点效果了。
+
+我的演示代码
+
+```java
+@Data
+@Role(Role.Type.EVENT)
+public class Fire {
+}
+
+@Data
+@Role(Role.Type.EVENT)
+public class SprinklerActivated {
+}
+
+//测试代码
+public class StreamTest {
+
+    @Test
+    public void testWait() throws InterruptedException {
+        KieSession session = SessionUtil.getStreamSession();
+        session.insert(new Fire());
+        Thread.sleep(4000);
+        session.insert(new SprinklerActivated());
+        session.fireAllRules(new RuleNameStartsWithAgendaFilter("stream :"));
+    }
+}
+```
+
+```drl
+package priv.cxs.drools.usetest.drls.stream;
+
+// 不判断时间间隔
+rule "stream : not wait"
+when
+    $f : Fire()
+    not( SprinklerActivated())
+then
+    System.out.println(System.currentTimeMillis() + " alarming when not wait");
+end
+
+// 判断时间间隔
+rule "stream : wait"
+when
+    $f : Fire()
+    not( SprinklerActivated(this after [0s, 3s] $f))
+then
+    System.out.println(System.currentTimeMillis() + " alarming when wait");
+end
+
+```
+
+##### 第一坑：ClassCastException
+
+java.lang.ClassCastException: org.drools.core.common.DefaultFactHandle cannot be cast to org.drools.core.common.EventFactHandle
+
+在这一段规则中 not( SprinklerActivated(this after [0s, 3s] $f))，涉及到了时序关系，需要在标识fact会产生一个event。具体的是在class上加上注解@Role(Role.Type.EVENT)，或者在drl中declare一下，@role(event)
+只是涉及到时序关系的才需要declare，如果一个fact和时间没关系，不需要。
+
+##### 第二坑：怎么设置mode
+
+各种方式都行，我用的是在kmodule文件中。
+但尴尬的是，无论改成stream还是cloud，上面的测试都是生效的。。why？
+
+```xml
+<kbase name="StreamBase" equalsBehavior="equality" declarativeAgenda="enabled" eventProcessingMode="stream">
+        <ksession name="streamSession" type="stateful" default="true"/>
+</kbase>
+```
+
+##### 我写的例子和文档说的不是一回事
+
+文档中想说明的是，stream模式下，规则需要等待3s才会生效。而我的例子只是说明了after这个功能生效了。
+为了防止eventProcessMode这个不生效的问题，我修改了drools源码中的test，发现和我的现象一致，并不会等待一段时间才会生效。
+
+- [ ] 暂且放弃
+
+#### length window需要注意的
+
+alpha网络中，所有限制都会在window前计算，beta网络的计算会延后。
+所以，StockTick(company == "RHT") over window:length(10) 定义的是10个满足条件的对象的集合，而StockTick(company == $s) over window:length(10)定义的是10个无论是否满足条件对象、再按条件过滤的集合。
+
+原文：
+
+> When using a sliding window, alpha constraints are evaluated before the window is considered, but beta (join) constraints are evaluated afterwards. This usually doesn't make a difference when time windows are concerned, but it's important when using a length window. For example this pattern:
+
+```xml
+StockTick( company == "RHT" ) over window:length( 10 )
+```
+
+> defines a window of (at most) 10 StockTicks all having company equal to "RHT", while the following one:
+
+```xml
+$s : String()
+StockTick( company == $s ) over window:length( 10 )
+```
+
+> first creates a window of (at most) 10 StockTicks regardless of the value of their company attribute and then filters among them only the ones having the company equal to the String selected from the working memory.
+
 ## 其他相关概念
 
 ### OptaPlanner
@@ -606,6 +712,11 @@ end
 
 ### forward chaining && backward chaining
 
+*From Baidu*
+
+> 正向推理又称数据驱动推理、演绎推理（相对于逆向推理、归纳推理），是按照由条件推出结论的方向进行的推理方式，它从一组事实出发，使用一定的推理规则，来证明目标事实或命题的成立。一般的推理过程是先向综合数据库提供一些初始已知事实，控制系统利用这些数据与知识库中的知识进行匹配，被触发的知识，将其结论作为新的事实添加到综合数据库中。重复上述过程，用更新过的综合数据库中的事实再与知识库中另一条知识匹配，将其结论更新至综合数据库中，直到没有可匹配的新知识和不再有新的事实加入到综合数据库中为止。然后测试是否得到解，有解则返回解，无解则提示运行失败。
+
+
 ### KRR (knowledge representation and reasoning)
 
 ### rete算法(drools5.x)
@@ -616,3 +727,5 @@ end
 命题逻辑处理简单的陈述性命题，一阶逻辑补充覆盖了谓词和量化。
 
  [找了一篇稍微靠谱点的文章](https://blog.csdn.net/dragonszy/article/details/6939782)
+
+### First-class Citizen
