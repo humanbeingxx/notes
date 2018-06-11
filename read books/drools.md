@@ -591,7 +591,7 @@ end
 
 ### CLOUD && STREAM
 
-cloud模式中，没有时间概念。
+cloud模式中，没有时间概念。
 
 #### 尝试stream的第一发
 
@@ -693,6 +693,70 @@ StockTick( company == $s ) over window:length( 10 )
 ```
 
 > first creates a window of (at most) 10 StockTicks regardless of the value of their company attribute and then filters among them only the ones having the company equal to the String selected from the working memory.
+
+#### 时间推理量词
+
+```
+$eventA : EventA( this after[ 3m, 4m ] $eventB )
+
+3m <= $eventA.startTimestamp - $eventB.endTimeStamp <= 4m
+```
+
+```
+$eventA : EventA( this before[ 3m, 4m ] $eventB )
+
+3m <= $eventB.startTimestamp - $eventA.endTimeStamp <= 4m
+```
+
+```
+$eventA : EventA( this coincides $eventB )
+
+$eventA : EventA( this coincides[15s, 10s] $eventB )
+
+abs( $eventA.startTimestamp - $eventB.startTimestamp ) <= 15s
+&&
+abs( $eventA.endTimestamp - $eventB.endTimestamp ) <= 10s
+
+等于
+$eventA.startTimestamp <= $eventB.startTimestamp ± 15
+&&
+$eventA.endTimestamp <= $eventB.endTimestamp ± 10
+```
+
+```
+$eventA : EventA( this during[ 5s, 10s ] $eventB )
+
+5s <= $eventA.startTimestamp - $eventB.startTimestamp <= 10s &&
+5s <= $eventB.endTimestamp - $eventA.endTimestamp <= 10s
+
+复杂的表达式
+$eventA : EventA( this during[ 2s, 6s, 4s, 10s ] $eventB )
+
+2s <= $eventA.startTimestamp - $eventB.startTimestamp <= 6s
+&&
+4s <= $eventB.endTimestamp - $eventA.endTimestamp <= 10s
+```
+
+```
+$eventA : EventA( this finishes $eventB )
+
+$eventB.startTimestamp < $eventA.startTimestamp
+&&
+$eventA.endTimestamp == $eventB.endTimestamp
+
+复杂的表达式
+
+$eventA : EventA( this finishes[ 5s ] $eventB )
+
+$eventB.startTimestamp < $eventA.startTimestamp
+&&
+abs( $eventA.endTimestamp - $eventB.endTimestamp ) <= 5s
+
+等于
+$eventB.startTimestamp < $eventA.startTimestamp
+&&
+$eventA.endTimestamp <= $eventB.endTimestamp ± 5s
+```
 
 ## 其他相关概念
 
