@@ -696,17 +696,23 @@ StockTick( company == $s ) over window:length( 10 )
 
 #### 时间推理量词
 
+##### after
+
 ```
 $eventA : EventA( this after[ 3m, 4m ] $eventB )
 
-3m <= $eventA.startTimestamp - $eventB.endTimeStamp <= 4m
+$eventB.endTimeStamp + 3m <= $eventA.startTimestamp <= $eventB.endTimeStamp + 4m
 ```
+
+##### before
 
 ```
 $eventA : EventA( this before[ 3m, 4m ] $eventB )
 
-3m <= $eventB.startTimestamp - $eventA.endTimeStamp <= 4m
+$eventB.startTimestamp - 4m <= $eventA.endTimeStamp <= $eventB.startTimestamp - 3m
 ```
+
+##### coincides
 
 ```
 $eventA : EventA( this coincides $eventB )
@@ -723,19 +729,40 @@ $eventA.startTimestamp <= $eventB.startTimestamp ± 15
 $eventA.endTimestamp <= $eventB.endTimestamp ± 10
 ```
 
-```
-$eventA : EventA( this during[ 5s, 10s ] $eventB )
+##### during
 
-5s <= $eventA.startTimestamp - $eventB.startTimestamp <= 10s &&
-5s <= $eventB.endTimestamp - $eventA.endTimestamp <= 10s
+```
+$eventA : EventA( this during $eventB )
+
+$eventB.startTimestamp < $eventA.startTimestamp <= $eventA.endTimestamp < $eventB.endTimestamp
 
 复杂的表达式
+
+$eventA : EventA( this during[ 5s ] $eventB )
+
+$eventB.startTimestamp < $eventA.startTimestamp <= $eventB.startTimestamp + 5s
+&&
+$eventB.endTimestamp - 5s <= $eventA.endTimestamp < $eventB.endTimestamp
+
+
+更复杂的表达式
+
+$eventA : EventA( this during[ 5s, 10s ] $eventB )
+
+$eventB.startTimestamp + 5s <= $eventA.startTimestamp <= $eventB.startTimestamp + 10s
+&&
+$eventB.endTimestamp - 10s <= $eventA.endTimestamp <= $eventB.endTimestamp - 5s
+
+最复杂的表达式
+
 $eventA : EventA( this during[ 2s, 6s, 4s, 10s ] $eventB )
 
-2s <= $eventA.startTimestamp - $eventB.startTimestamp <= 6s
+$eventB.startTimestamp + 2s <= $eventA.startTimestamp <= $eventB.startTimestamp + 6s
 &&
-4s <= $eventB.endTimestamp - $eventA.endTimestamp <= 10s
+$eventB.endTimestamp - 10s <= $eventA.endTimestamp <= $eventB.endTimestamp - 4s
 ```
+
+##### finishes
 
 ```
 $eventA : EventA( this finishes $eventB )
@@ -756,6 +783,18 @@ abs( $eventA.endTimestamp - $eventB.endTimestamp ) <= 5s
 $eventB.startTimestamp < $eventA.startTimestamp
 &&
 $eventA.endTimestamp <= $eventB.endTimestamp ± 5s
+```
+
+finished by和finished正好相反，start的关系反过来。
+
+##### includes
+
+```
+$eventA : EventA( this includes[ 5s ] $eventB )
+
+$eventB.startTimestamp - 5s <= $eventA.startTimestamp < $eventB.startTimestamp
+&&
+$eventB.endTimestamp < $eventA.endTimestamp <= $eventB.endTimestamp + 5s
 ```
 
 ## 其他相关概念
