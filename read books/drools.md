@@ -724,9 +724,9 @@ abs( $eventA.startTimestamp - $eventB.startTimestamp ) <= 15s
 abs( $eventA.endTimestamp - $eventB.endTimestamp ) <= 10s
 
 等于
-$eventA.startTimestamp <= $eventB.startTimestamp ± 15
+$eventB.startTimestamp - 15 <= $eventA.startTimestamp <= $eventB.startTimestamp + 15s
 &&
-$eventA.endTimestamp <= $eventB.endTimestamp ± 10
+$eventB.endTimestamp - 10 <= eventA.endTimestamp <= $eventB.endTimestamp + 10
 ```
 
 ##### during
@@ -782,7 +782,7 @@ abs( $eventA.endTimestamp - $eventB.endTimestamp ) <= 5s
 等于
 $eventB.startTimestamp < $eventA.startTimestamp
 &&
-$eventA.endTimestamp <= $eventB.endTimestamp ± 5s
+$eventB.endTimestamp - 5s <= $eventA.endTimestamp <= $eventB.endTimestamp + 5s
 ```
 
 finished by和finished正好相反，start的关系反过来。
@@ -795,6 +795,91 @@ $eventA : EventA( this includes[ 5s ] $eventB )
 $eventB.startTimestamp - 5s <= $eventA.startTimestamp < $eventB.startTimestamp
 &&
 $eventB.endTimestamp < $eventA.endTimestamp <= $eventB.endTimestamp + 5s
+
+$eventA : EventA( this includes[ 2s, 6s, 4s, 10s ] $eventB )
+
+$eventB.startTimestamp - 6s <= $eventA.startTimestamp < $eventB.startTimestamp - 2s
+&&
+$eventB.endTimestamp + 4s < $eventA.endTimestamp <= $eventB.endTimestamp + 10s
+```
+
+##### meets
+
+```
+$eventA : EventA( this meets[ 5s ] $eventB )
+
+abs( $eventB.startTimestamp - $eventA.endTimestamp) <= 5s
+
+等于
+$eventB.startTimestamp - 5s <= $eventA.endTimestamp <= $eventB.startTimestamp + 5s
+```
+
+##### metby
+
+```
+$eventA : EventA( this meets[ 5s ] $eventB )
+
+abs( $eventA.startTimestamp - $eventB.endTimestamp) <= 5s
+
+等于
+$eventB.endTimestamp - 5s <= $eventA.startTimestamp <= $eventB.endTimestamp + 5s
+```
+
+##### overlap && overlapby
+
+```
+$eventA : EventA( this overlaps $eventB )
+
+$eventA.startTimestamp < $eventB.startTimestamp < $eventA.endTimestamp < $eventB.endTimestamp
+
+复杂的表达式
+
+$eventA : EventA( this overlaps[ 5s, 10s ] $eventB )
+
+$eventA.startTimestamp < $eventB.startTimestamp < $eventA.endTimestamp < $eventB.endTimestamp
+&&
+$eventB.startTimestamp + 5s <= $eventA.endTimestamp <= $eventB.startTimestamp + 10s
+
+overlap by
+
+$eventA : EventA( this overlappedby[ 5s, 10s ] $eventB )
+
+$eventB.startTimestamp < $eventA.startTimestamp < $eventB.endTimestamp < $eventA.endTimestamp
+&&
+5s <= $eventB.endTimestamp - $eventA.startTimestamp <= 10s
+```
+
+##### starts
+
+```
+$eventA : EventA( this starts $eventB )
+
+$eventA.startTimestamp == $eventB.startTimestamp
+&&
+$eventA.endTimestamp < $eventB.endTimestamp
+
+复杂的表达式
+$eventA : EventA( this starts[ 5s ] $eventB )
+
+abs( $eventA.startTimestamp - $eventB.startTimestamp ) <= 5s
+&&
+$eventA.endTimestamp < $eventB.endTimestamp
+
+等于
+$eventB.startTimestamp - 5s <= $eventA.startTimestamp <= $eventB.startTimestamp + 5s
+$eventA.endTimestamp < $eventB.endTimestamp
+
+started by 和 starts 相反
+
+$eventA : EventA( this starts[ 5s ] $eventB )
+
+abs( $eventA.startTimestamp - $eventB.startTimestamp ) <= 5s
+&&
+$eventA.endTimestamp > $eventB.endTimestamp
+
+等于
+$eventB.startTimestamp - 5s <= $eventA.startTimestamp <= $eventB.startTimestamp + 5s
+$eventA.endTimestamp > $eventB.endTimestamp
 ```
 
 ## 其他相关概念
