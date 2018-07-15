@@ -916,7 +916,6 @@ $eventA.endTimestamp > $eventB.endTimestamp
 
  [找了一篇稍微靠谱点的文章](https://blog.csdn.net/dragonszy/article/details/6939782)
 
-<<<<<<< HEAD
 #### RETE算法(drools5以下)
 
 ![rete算法](../attach/rete算法.png)
@@ -949,6 +948,5 @@ $eventA.endTimestamp > $eventB.endTimestamp
 ##### RETE/UL
 
 ##### Collection-Oriented Match
-=======
+
 ### First-class Citizen
->>>>>>> 9a84cfcf75dbc7d47c9877a4b56fcb5ba484162c
