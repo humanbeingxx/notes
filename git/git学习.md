@@ -59,4 +59,19 @@ git自动创建的匿名分支。下面的情况下会自动创建：
 
 git rev-list A 查看从可以到达A的所有提交。
 git rev-list B 查看从可以到达A或者B的所有提交。
-git rev-list A..B 查看从A到B的所有提交。
+git rev-list A..B
+
+#### git show-branch
+
+查看提交记录，优势是能看到分支版本的特殊表示方法。例如：
+
+[master] update
+[master^] add
+[master~2] clean commit log
+[master~3] add new file
+[master~4] Merge branch 'master' of github.com:humanbeingxx/notes
+[master~4^2] add new files
+
+#### git diff commit1 commit 2 --stat
+
+加上 --stat，可以只看改动的文件列表。
