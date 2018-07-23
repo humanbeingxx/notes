@@ -59,3 +59,4 @@ git自动创建的匿名分支。下面的情况下会自动创建：
 
 git rev-list A 查看从可以到达A的所有提交。
 git rev-list B 查看从可以到达A或者B的所有提交。
+git rev-list A..B 查看从A到B的所有提交。
