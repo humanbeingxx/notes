@@ -34,3 +34,7 @@ A -> B -> C
 ### mvn dependency:analyze
 
 从代码使用层面检查依赖，无法检查运行时。
+
+## 疑问
+
+pom中配置多个versino是什么意思？
