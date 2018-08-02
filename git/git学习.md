@@ -92,3 +92,12 @@ git rev-list A..B
 #### git diff commit1 commit 2 --stat
 
 加上 --stat，可以只看改动的文件列表。
+
+#### git rm
+
+用 git rm 来删除文件，同时还会将这个删除操作记录下来；
+用 rm 来删除文件，仅仅是删除了物理文件，没有将其从 git 的记录中剔除。
+
+git rm 删除已经提交的文件，并将删除操作提交到暂存区。不能删除只提交到暂存区的文件  ->  error: the following file has changes staged in the index
+
+git rm --cached 从暂存区删除，但是工作区保留。
