@@ -40,3 +40,7 @@ org.apache.zookeeper.server.quorum.QuorumPeerMain#runFromConfig(QuorumPeerConfig
 
 ***recvset*** 用于保存一轮投票中，获取到的外来投票。
 ***recvset*** 当本地选票落后于外来选票时清空并添加外来选票，当本地选票领先于外来选票时不操作，当本地选票同步于外来选票时添加外来选票。
+
+***outofelection*** 中保存的是heading和following选票。
+如果选举周期不一致或者上面的leading校验没通过，会在outofelection中校验leading的有效性。
+如果当前的本地投票周期落后，则更新为外来leading，这个逻辑没问题，但如果本地投票领先呢?

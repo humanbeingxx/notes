@@ -82,11 +82,17 @@ public Vote lookForLeader() throws InterruptedException {
                      */
                     recvset.put(n.sid, new Vote(n.leader, n.zxid, n.electionEpoch, n.peerEpoch));
 
+                    /**
+                     * 判定本次选举是否已经达成一致。并不需要等到所有选票都到达，只需要有达到一半以上的相同投票。
+                     */
                     if (termPredicate(recvset,
                             new Vote(proposedLeader, proposedZxid,
                                     logicalclock, proposedEpoch))) {
 
-                        // Verify if there is any change in the proposed leader
+                        /**
+                         * 再验证一下是否有新选票比当前赢得选取的更合适。
+                         * 如果有，则放回接收队列，重新下一轮投票。
+                         */
                         while((n = recvqueue.poll(finalizeWait,
                                 TimeUnit.MILLISECONDS)) != null){
                             if(totalOrderPredicate(n.leader, n.zxid, n.peerEpoch,
@@ -96,10 +102,9 @@ public Vote lookForLeader() throws InterruptedException {
                             }
                         }
 
-                        /*
-                            * This predicate is true once we don't read any new
-                            * relevant message from the reception queue
-                            */
+                        /**
+                         * 如果没有新选票，则投票完成。
+                         */
                         if (n == null) {
                             self.setPeerState((proposedLeader == self.getId()) ?
                                     ServerState.LEADING: learningState());
@@ -118,11 +123,12 @@ public Vote lookForLeader() throws InterruptedException {
                     break;
                 case FOLLOWING:
                 case LEADING:
-                    /*
-                        * Consider all notifications from the same epoch
-                        * together.
-                        */
+                    /**
+                     * 如果是用一个选举周期，且leader验证通过，则认同并退出选举
+                     */
                     if(n.electionEpoch == logicalclock){
+
+                        // 继续放到已收到的投票中，因为此时可能收到的投票还不足以证明外来投票的leader就是leader
                         recvset.put(n.sid, new Vote(n.leader,
                                                         n.zxid,
                                                         n.electionEpoch,
@@ -141,10 +147,11 @@ public Vote lookForLeader() throws InterruptedException {
                         }
                     }
 
-                    /*
-                        * Before joining an established ensemble, verify
-                        * a majority is following the same leader.
-                        */
+                    /**
+                     * outofelection中保存的是heading和following选票。
+                     * 如果选举周期不一致或者上面的leading校验没通过，会在outofelection中校验leading的有效性。
+                     * 如果当前的本地投票周期落后，则更新为外来leading，这个逻辑没问题，但如果本地投票领先呢?
+                     */
                     outofelection.put(n.sid, new Vote(n.version,
                                                         n.leader,
                                                         n.zxid,
