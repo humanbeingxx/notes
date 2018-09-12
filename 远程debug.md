@@ -8,7 +8,7 @@ export JAVA_OPTS=$JAVA_OPTS" -agentlib:jdwp=transport=dt_socket,server=y,suspend
 
 ## 在服务器控制台上开启socat命令
 
-socat TCP4-LISTEN:9612,fork,range=你本地的ip/32 TCP4:127.0.0.1:60001 其中range=本地ip
+socat TCP4-LISTEN:9612,fork,range=本地ip/32 TCP4:127.0.0.1:60001 其中range=本地ip
 
 ## idea创建remote
 
