@@ -1,4 +1,6 @@
-# type字段
+# explain
+
+## type字段
 
 依次从好到差：system，const，eq_ref，ref，fulltext，ref_or_null，unique_subquery，index_subquery，range，index_merge，index，ALL，除了all之外，其他的type都可以使用到索引，除了index_merge之外，其他的type只可以用到一个索引
 
@@ -14,3 +16,5 @@
 - index_merge：表示查询使用了两个以上的索引，最后取交集或者并集，常见and ，or的条件使用了不同的索引，官方排序这个在ref_or_null之后，但是实际上由于要读取所个索引，性能可能大部分时间都不如range
 - index：索引全表扫描，把索引从头到尾扫一遍，常见于使用索引列就可以处理不需要读取数据文件的查询、可以使用索引排序或者分组的查询。
 - all：这个就是全表扫描数据文件，然后再在server层进行过滤返回符合要求的记录。
+
+## extra什么意思？
