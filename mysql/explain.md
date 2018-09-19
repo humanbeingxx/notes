@@ -18,3 +18,6 @@
 - all：这个就是全表扫描数据文件，然后再在server层进行过滤返回符合要求的记录。
 
 ## extra什么意思？
+
+using where; using index 是什么意思？
+目前看网上比较靠谱的解释是，using where表示的是使用了where条件进行过滤，和回不回表没关系，而using index表示使用了索引帮助过滤。
