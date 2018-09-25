@@ -1,5 +1,24 @@
 # git从0开始
 
+## git clone
+
+git clone --bare 是什么意思？有什么用？
+
+--bare 表示创建一个裸仓库，没有项目源代码等文件，只保留提交历史。和普通仓库结构不一样，没有工作目录，只有如下文件：
+
+HEAD        description     info        packed-refs
+config      hooks           objects     refs
+
+普通仓库用来编辑，bare仓库用来共享变更。比如有一个项目test，已经有了一个普通仓库。
+可以建立一个bare仓库，git clone --bare test。（这个仓库可以理解为服务器上的代码仓库，没人能直接改。）
+（下面的操作我就不知道是不是正确的了。。。）
+
+```txt
+在bare仓库中不能执行git pull等命令，不能主动拉取到新的提交，必须由人主动推送。
+为了推送提交，需要将本地的代码remote设置成bare仓库。git remote add origin xxbarexx。
+其他开发可以从bare上直接clone，git clone xxbarexx，也可以提交。
+```
+
 ## git push
 
 ### 模式
