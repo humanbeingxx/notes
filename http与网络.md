@@ -1,5 +1,48 @@
 # 网络与http
 
+## tcp
+
+### 状态机
+
+![状态机](./attach/tcp状态机.png)
+
+图中 SYN/SYN+ACK 表示“收到SYN，发送SYN+ACK”
+
+### 三次握手
+
+```sequence
+client->server: syn=i
+server->client: ack=i+1, syn=j
+client->server: (established) ack=j+1 (established)
+```
+
+#### 为什么是三次？
+
+##### 一次
+
+肯定不行。漏洞太多。
+
+##### 两次
+
+情况一：server ack延迟，client没收到，但server回复ack时已经建立连接。此时client超时，重新发送syn，但server已经是建立状态，不再响应ack，无法建立连接。
+
+情况二：client第一次syn延迟，重新发第二次syn，和server成功建立连接。传输完数据后关闭连接。此时第一次延迟syn到达，server认为是另一次连接，重新和client建立了连接。（但是第二次建立并不是client期望的。）
+
+##### 四次
+
+第三步如果是server发syn给client，则可以和第二步server回复ack合并。
+如果是client发syn给server，然后server回复ack时建立连接，这应该也可以，但是还是多出了一次网络传输，没有必要。
+
+##### 三次怎么解决两次的问题
+
+情况一下：client收不到ack，不会发起建立连接请求。
+
+情况二下：server再次收到syn，会发ack给client，此时client有机会去判断是不是自己正常发出的syn，如果不是，不会发起建立连接请求。
+
+#### 四次挥手
+
+
+
 ## 正向代理与反向代理
 
 ![代理](./attach/正向代理+反向代理.png)
