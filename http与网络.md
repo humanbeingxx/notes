@@ -30,8 +30,17 @@ client->server: (established) ack=j+1 (established)
 
 ##### 四次
 
-第三步如果是server发syn给client，则可以和第二步server回复ack合并。
-如果是client发syn给server，然后server回复ack时建立连接，这应该也可以，但是还是多出了一次网络传输，没有必要。
+第三步
+
+- 如果是server发syn给client，则可以和第二步server回复ack合并。
+- 如果是client发syn给server，然后server回复ack时建立连接，这应该也可以，但是还是多出了一次网络传输，没有必要。不对，这样不可以，如果由server主动发起连接建立syn，会出现两次中的情况二，如果要避免重新建立，需要client再做额外判断和网络传输去取消server端的established状态，反而麻烦。如下图
+
+```sequence
+client->server: syn=i
+server->client: ack=i+1
+client->server: syn=j
+server->client: (established)ack=j+1(established)
+```
 
 ##### 三次怎么解决两次的问题
 
