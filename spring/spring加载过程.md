@@ -8,7 +8,7 @@
 
 ## bean加载过程
 
-### 2. org.springframework.context.support.AbstractApplicationContext#refresh   -> org.springframework.context.support.AbstractRefreshableApplicationContext#refreshBeanFactory
+### 2. org.springframework.context.support.AbstractApplicationContext#refresh
 
 ```java
 public void refresh() throws BeansException, IllegalStateException {
@@ -45,6 +45,7 @@ public void refresh() throws BeansException, IllegalStateException {
             registerListeners();
 
             // Instantiate all remaining (non-lazy-init) singletons.
+            // 加载bean的核心步骤
             finishBeanFactoryInitialization(beanFactory);
 
             // Last step: publish corresponding event.
@@ -76,10 +77,126 @@ public void refresh() throws BeansException, IllegalStateException {
 
 #### bean创建过程
 
-org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#createBean()
+org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#createBean() 真正创建bean实例的地方。
+
+判断类构造器和bean的构造方式。如果bean定义有构造参数 或者 autowire方式是AUTOWIRE_CONSTRUCTOR 或者 没有空的空白的构造器，都会走指定构造器。
+否则，就用空白构造器，先实例化一个空白的对象，并用一个BeanWrapper包装。
+
+org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#populateBean 完成了对象内成员的赋值。
 
 #### 解决循环依赖
+
+实例化bean之前（org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#beforeSingletonCreation），放入singletonsCurrentlyInCreation这个map。bean实例化出来后（org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#afterSingletonCreation）再移除。
+
+在 getSingleton的时候，spring的默认实现是，先从singletonObjects寻找，如果找不到，再从earlySingletonObjects寻找，仍然找不到，那就从singletonFactories寻找对应的制造singleton的工厂，然后调用工厂的getObject方法，造出对应的SingletonBean，并放入earlySingletonObjects中。
+
+```java
+// AAService和BBService循环依赖
+
+@Service
+public class AAService {
+
+    @Resource
+    private BBService bbService;
+}
+
+@Service
+public class BBService {
+
+    @Resource
+    private AAService aaService;
+}
+
+```
+
+bean生成的调用链是
+
+前置
+
+1. BBService先构造，从`org.springframework.beans.factory.support.AbstractBeanFactory#doGetBean`开始。
+2. 调用`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#getSingleton(java.lang.String, boolean)`尝试从缓存中获取已经加载的bean，先singletonObjects，再earlySingletonObjects。
+3. 都没有，则调用`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#getSingleton(java.lang.String, org.springframework.beans.factory.ObjectFactory<?>)`创建bean实例。
+4. 方法`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#beforeSingletonCreation`会将BBService放入singletonsCurrentlyInCreation中，表示正在构建。
+5. 调用`org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#createBeanInstance`实际生成实例。这个方法会根据autwire、构造方法等情况，来选择如何实例出一个bean。
+6. 创建完bean实例后，会调用`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#addSingletonFactory`将BBService的BeanFactory放入缓存singletonFactories中。
+7. 调用`org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#populateBean`开始填充BBService的依赖。此时会发现需要加载AAService。
+8. 重复上面1~5步骤，当给AAService开始populateBean时，发现需要BBService。
+9. 此时从缓存singletonObjects和earlySingletonObjects都没有发现BBService，但是可以获取到BBService的BeanFactory。获取BBService并将它放入缓存earlySingletonObjects中。同时从缓存singletonFactories中移除BBService。
+10. 将BBService注入AAService后完成AAService的构建。
+11. 调用`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#afterSingletonCreation`将AA从singletonsCurrentlyInCreation中移除。
+12. 调用`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#addSingleton`将AAService从singletonFactories和earlySingletonObjects中移除，并加入singletonObjects中。
+13. 继续执行BBService的populate，此时可以从singletonObjects中获取到AAService，完成。
+14. 依次调用afterSingletonCreation和addSingleton，结束对BBService的处理。
 
 #### 插曲
 
 spring会默认加载一些环境变量 environment = systemProperties + systemEnvironment
+
+## web项目加载过程
+
+1. web项目启动的时候，容器会优先读取web.xml文件，并且先找到listener和context-param两个节点；
+
+2. 容器会创建一个ServlextContext上下文，并解析context-param节点，存入上下文中。
+
+3. 容器创建listener实例，并执行listener实例中的contextInitialized(ServletContextEvent sce)方法。contextInitialized创建了spring父容器，在context-param中配置的spring.xml中的bean都会被加载到容器中。
+
+4. 执行filter节点信息；
+
+5. 最后创建servlet；
+
+web.xml中的配置
+
+```xml
+<context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>classpath*:spring/app-core.xml</param-value>
+</context-param>
+
+<listener>
+    <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+</listener>
+<listener>
+    <listener-class>org.springframework.web.util.IntrospectorCleanupListener</listener-class>
+</listener>
+
+
+<servlet>
+    <servlet-name>mvc-dispatcher</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <init-param>
+        <param-name>contextConfigLocation</param-name>
+        <param-value>
+            /WEB-INF/servlet-context.xml
+        </param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+</servlet>
+```
+
+load-on-startup表示容器启动时，加载这个servlet。
+
+### 创建父容器大致过程
+
+1. 监听到servlet事件，启动 org.springframework.web.context.ContextLoaderListener#contextInitialized
+2. 创建一个context实例 org.springframework.web.context.ContextLoader#createWebApplicationContext
+3. 开始初始化 org.springframework.web.context.ContextLoader#configureAndRefreshWebApplicationContext
+4. 调用refresh org.springframework.context.support.AbstractApplicationContext#refresh
+5. 后面就是常规的加载过程。
+
+### mvc容器创建过程
+
+从DispatcherServlet的init()方法开始。
+
+从load-on-startup到init()大致流程如下：
+
+1. tomcat生成StandardContext实例 org.apache.catalina.mbeans.MBeanFactory#createStandardContext
+2. tomcat将StandardContext添加到Host上 org.apache.catalina.core.StandardHost#addChild
+3. org.apache.catalina.core.StandardContext#start
+4. org.apache.catalina.core.StandardContext#loadOnStartUp
+5. org.apache.catalina.core.StandardWrapper#loadServlet
+6. org.apache.catalina.core.StandardWrapper#initServlet
+7. org.springframework.web.servlet.HttpServletBean#init
+8. org.springframework.web.servlet.FrameworkServlet#initServletBean
+9. org.springframework.web.servlet.FrameworkServlet#createWebApplicationContext(org.springframework.context.ApplicationContext)
+10. org.springframework.web.servlet.FrameworkServlet#configureAndRefreshWebApplicationContext
+11. org.springframework.context.support.AbstractApplicationContext#refresh
