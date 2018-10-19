@@ -200,3 +200,44 @@ load-on-startup表示容器启动时，加载这个servlet。
 9. org.springframework.web.servlet.FrameworkServlet#createWebApplicationContext(org.springframework.context.ApplicationContext)
 10. org.springframework.web.servlet.FrameworkServlet#configureAndRefreshWebApplicationContext
 11. org.springframework.context.support.AbstractApplicationContext#refresh
+
+## spring的钩子
+
+### BeanDefinitionRegistryPostProcessor
+
+#### postProcessBeanDefinitionRegistry
+
+ApplicationContext的refresh中，获取到BeanFactory之后 到 初始化bean 之前，调用 BeanDefinitionRegistryPostProcessor.postProcessBeanDefinitionRegistry。
+可以通过这个钩子，动态添加、修改bean的定义。
+
+#### postProcessBeanFactory
+
+调用完BeanDefinitionRegistryPostProcessor.postProcessBeanDefinitionRegistry后会继续调用BeanDefinitionRegistryPostProcessor.postProcessBeanFactory。
+也可以修改bean的定义。
+
+#### 两者的区别？？
+
+不是太清楚，注释中提到了，可以通过postProcessBeanDefinitionRegistry来修改其他的BeanFactoryPostProcessor实例。
+
+### BeanPostProcessor
+
+#### postProcessBeforeInitialization
+
+doCreateBean方法中，在调用populateBean后，会调用initializeBean方法。
+这个钩子在init前生效。
+
+#### postProcessAfterInitialization
+
+这个钩子在init后生效。
+
+### InitializingBean
+
+这个钩子在上面两个钩子之间生效。
+
+### @PostConstruct
+
+在postProcessBeforeInitialization之后，InitializingBean之前。
+
+总结下这几个的顺序。
+
+postProcessBeanDefinitionRegistry > postProcessBeanFactory > postProcessBeforeInitialization > PostConstruct > InitializingBean > postProcessAfterInitialization
