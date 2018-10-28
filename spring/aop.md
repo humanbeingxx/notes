@@ -6,3 +6,128 @@
 经典的装饰器模式：java InputStream/OutputStream。
 
 有什么区别？从上面两种方式可以看出，代理模式对于使用者来说是不可感知的，那么代理类和实际处理类应该对外暴露应该是一个接口。但从java流的实现来看，装饰器模式并不需要同一个接口。比如可以用DataInputStream包装FileInputStream，FileInputStream是标准的inputstream，而DataInputStream在此之上又实现了DataInput。
+
+## 几个概念与关系
+
+### Joinpoint 连接点
+
+一个类或一段代码拥有一些边界性质的特定点，这些代码中的特定点就被称为“连接点”。
+
+### Pointcut 切点
+
+切点就是我们我们配置的满足我们条件的目标方法。
+
+从spring源码可以看出，Pointcut是来判断一个方法是否需要切入。
+
+```java
+public Interface Pointcut {
+
+    ClassFilter getClassFilter();
+
+    MethodMathcer getMethodMatcher();
+}
+
+```
+
+### advice
+
+在一个Joinpoint处应该采取的动作。
+常见的有 BeforeAdvice, AfterReturnAdvice, ThrowsAdvices。
+
+### advisor
+
+持有一个Advice，并在此基础上做另外的包装。
+例如接口`PointcutAdvisor extends Advisor`，新增了获取Pointcut的功能。是将Advice和Pointcut结合的一个实体。
+
+## 执行流程
+
+### bean加载过程
+
+#### spring xml配置方式
+
+```xml
+<bean id="testAdvisor" class="...TestAdvisor">
+
+<bean id="testAOP" class="...ProxyFactoryBean">
+    <property name="proxyInterfaces">xxx</property>
+    <property name="target">
+        <bean class="...TestTarget">
+    </property>
+    <property name="interceptorNames">
+        <list>
+            <value>testAdvisor</value>
+        </list>
+    </property>
+</bean>
+
+```
+
+加载bean时，会先加载一个beanName是&testAOP的ProxyFactoryBean。加载beanName是testAOP的bean时，根据beanName拿到已经加载过的ProxyFactoryBean，从这个FactoryBean中生成一个bean。
+
+1. 根据配置的intercetporNames加载advisors。
+2. 根据是否是接口，判断用jdk还是cglib，创建一个AopProxy。这个AopProxy是具体生成代理类的。
+3. 使用AopProxy生成一个代理类。
+
+#### 基于注解配置方式
+
+`<aop:aspectj-autoproxy/>`
+
+1. 实例化bean时会调用AbstractAutowireCapableBeanFactory.initializeBean，过程中会调用applyBeanPostProcessorAfterInitialization
+2. 会有一系列PostProcessor，其中包含了各种AutoProxyCreator。aspectj是AnnotationAwareAspectJAutoProxyCreator，但具体的process还是在父类AbstractAutoProxyCreator中。
+3. AbstractAutoProxyCreator的createProxy生成一个代理类并返回。具体实现也是获取一个ProxyFactory，并根据是否有接口等，采用jdk或是cglib。
+
+### 代理执行过程
+
+#### jdk方式
+
+1. 走JdkDynamicAopProxy，这个实现了jdk代理的InvocationHandler。
+2. 将配置的Advisor加入到interceptors chain中。如果是PointcutAdvisor，会判断当前类(getClassFilter)和方法(getMethodMatcher)是否符合切面条件。
+3. 生成一个RelfectiveMethodInvocation，并执行proceed。这里proceed是递归执行，每次执行，本地的interceptor位置为递增。
+4. 执行proceed之前，会执行满足条件的interceptor。此处调用了我们实现的Advice具体方法。ThrowsAdviceInterceptor比较特殊，会根据advice中方法参数的具体异常类型进行匹配，如果抛出的异常不是Advice中接收的异常，则不会执行。异常的匹配规则是从抛出异常的子类依次往父类方向找。
+5. proceed执行完，拿到retVal。此处spring做了个特殊case，如果一个方法的返回类型是被代理类，则会将retVal设置成代理proxy。这样可以一定程度上解决返回this后代理失效的问题。
+
+#### cglib
+
+todo
+
+## AopContext
+
+### 怎么实现在被代理类中currentProxy()方法返回有值，而在外部调用currentProxy()返回null？
+
+如下代码
+
+```java
+// 被代理类
+
+//调用test1时，内部调用test2，此时aop在test1和test2上都能工作。
+public class TestTarget implements Test{
+
+    public void test1() {
+        System.out.println("test1");
+        Test proxy = (Test)AopContext.currentProxy();
+        test2();
+    }
+
+    public void test2() {
+        System.out.println("test2");
+    }
+}
+
+//当外部尝试获取AopContext.currentProxy()时为null
+@Test
+public void test() {
+    testTarget.test1();
+    // proxy 为null
+    Test proxy = (Test)AopContext.currentProxy();
+}
+```
+
+#### 原因
+
+aop的ReflectiveMethodInvocation执行过程中，有如下流程：
+
+1. 如果exposeProx==true, 执行 oldProxy = AopContext.setProxy(currentProxy);
+2. 执行proceed()方法;
+3. 执行AopContext.setProxy(oldProxy)。
+
+对第一个执行的Proxy来说得到的oldProxy是null，而proceed是递归执行的。所以当整个代理过程执行完时，AopContext.setProxy(oldProxy)中的oldProxy仍然是null。
