@@ -1,5 +1,38 @@
 # 事务
 
+## bean加载过程
+
+### 基于注解
+
+1. org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#doCreateBean
+2. populateBean后会调用org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#initializeBean
+3. initializeBean中调用了org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#applyBeanPostProcessorsAfterInitialization
+4. BeanPostProcessors中包含了一个`InfrastructureAdvisorAutoProxyCreator`，它会生成一个proxy。
+5. 调用postProcessAfterInitialization，实际执行的是父类AbstractAutoProxyCreator的方法。首先会获取这个class可用的interceptor，这里包含了一个BeanFactoryTransactionAttributeSourceAdvisor。
+6. 使用ProxyFactory.getProxy创建一个proxy。[怎么创建一个proxy](aop.md#基于注解配置方式)
+7. 此时bean已经被替换成cglib或者jdk代理类了。例如TestDbService$$EnhancerBySpringCGLIB$$c44f701e
+
+### BeanFactoryTransactionAttributeSourceAdvisor
+
+有两个重要成员 TransactionAttributeSourcePointcut 和 TransactionAttributeSource。 PointCut判断是否match时，使用的标准来自source。
+
+## 事务执行过程
+
+用的是注解 + cglib
+
+1. 执行时走的是代理类，CglibAopProxy.DynamicAdvisedInterceptor#intercept。
+2. 执行到TransactionInterceptor，并调用父类的TransactionAspectSupport.invokeWithinTransaction
+3. invokeWithinTransaction 首先会获取一些配置信息和一个PlatformTransactionManager，接着开始创建一个事务，事务具体的创建是在PlatformTransactionManager中进行的。
+4. PlatformTransactionManager.getTransaction执行如下：
+    1. 使用doGetTransaction创建一个transaction实例，并尝试从TransactionSynchronizationManager中获取已有的ConnectionHolder。如果有，则放到自己的transaction实例中。
+    2. 如果入参的TransactionDefinition是null，则设置为默认的。
+    3. 判断是否已有事务。主要通过ConnectionHolder是否为null以及ConnectionHolder.isTransactionActive判断。如果已有事务，根据不同的传播级别进行处理。特别是事务的挂起操作，主要是把TransactionSynchronizationManager中的状态值保存到一个SuspendedResourcesHolder中，并清空manager中的值。
+    4. 没有事务，也会根据不同的传播级别进行处理。能继续进行的话，会调用doBegin，主要做了这些事：从datasource获取一个connection并放到connectionHolder；设置connectionHolder的一些状态，比如SynchronizedWithTransaction=true，TransactionActive=true；关闭connection的autocommit；如果是一个新的connectionHolder，还会bindResource，主要是将datasource绑定到threadlocal中。
+5. 执行实际类的方法。里面的一些db操作，暂时不说。
+6. 执行完后，回到TransactionAspectSupport#invokeWithinTransaction中，如果有异常，执行completeTransactionAfterThrowing，否则执行commitTransactionAfterReturning。
+7. completeTransactionAfterThrowing执行过程：根据RuleBasedTransactionAttribute判断异常是否需要回滚；如果需要，使用TransactionManager进行rollback，也是拿到connectionHolder中的connection进行回滚。
+8. commitTransactionAfterReturning执行过程：从DefaultTransactionStatus中获取DataSourceTransactionObject，再从DataSourceTransactionObject中获取ConnectionHolder，再从ConnectionHolder中获取Connection，调用commit。
+
 ## 传播级别
 
 PROPAGATION_REQUIRED 没有事务新开一个，有事务在事务中执行。

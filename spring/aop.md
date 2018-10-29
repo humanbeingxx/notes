@@ -74,7 +74,10 @@ public Interface Pointcut {
 
 1. 实例化bean时会调用AbstractAutowireCapableBeanFactory.initializeBean，过程中会调用applyBeanPostProcessorAfterInitialization
 2. 会有一系列PostProcessor，其中包含了各种AutoProxyCreator。aspectj是AnnotationAwareAspectJAutoProxyCreator，但具体的process还是在父类AbstractAutoProxyCreator中。
-3. AbstractAutoProxyCreator的createProxy生成一个代理类并返回。具体实现也是获取一个ProxyFactory，并根据是否有接口等，采用jdk或是cglib。
+3. AbstractAutoProxyCreator的createProxy生成一个代理类并返回。具体实现是使用一个ProxyFactory。
+4. ProxyFactory.getProxy执行过程如下：
+    1. createAopProxy创建一个AopProxy。会根据是否有接口等，采用jdk或是cglib。
+    2. 调用AopProxy的getProxy，使用jdk或者cglib生成proxy。
 
 ### 代理执行过程
 
