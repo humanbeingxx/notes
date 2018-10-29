@@ -131,3 +131,10 @@ aop的ReflectiveMethodInvocation执行过程中，有如下流程：
 3. 执行AopContext.setProxy(oldProxy)。
 
 对第一个执行的Proxy来说得到的oldProxy是null，而proceed是递归执行的。所以当整个代理过程执行完时，AopContext.setProxy(oldProxy)中的oldProxy仍然是null。
+
+## jdk动态代理原理
+
+java.lang.reflect.Proxy#newProxyInstance
+
+1. 根据传入的interface[]，生成一个实现了class二进制文件。这个新class实现了所有传入的inertface。
+2. 调用新class的构造器，入参是InvocationHandler。
