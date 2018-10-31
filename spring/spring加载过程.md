@@ -128,6 +128,29 @@ bean生成的调用链是
 13. 继续执行BBService的populate，此时可以从singletonObjects中获取到AAService，完成。
 14. 依次调用afterSingletonCreation和addSingleton，结束对BBService的处理。
 
+为什么要一个ObjectFactory缓存？
+
+如果没有这个，只能直接缓存一个bean的实例，但是我们知道，可能有aop等会将bean替换成代理类。如果缓存直接实例化的bean，那么这些代理类就没有机会替换了。
+这里ObjectFactory的实现是：
+
+```java
+protected Object getEarlyBeanReference(String beanName, RootBeanDefinition mbd, Object bean) {
+    Object exposedObject = bean;
+    if (bean != null && !mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+        for (BeanPostProcessor bp : getBeanPostProcessors()) {
+            if (bp instanceof SmartInstantiationAwareBeanPostProcessor) {
+                SmartInstantiationAwareBeanPostProcessor ibp = (SmartInstantiationAwareBeanPostProcessor) bp;
+                exposedObject = ibp.getEarlyBeanReference(exposedObject, beanName);
+                if (exposedObject == null) {
+                    return exposedObject;
+                }
+            }
+        }
+    }
+    return exposedObject;
+}
+```
+
 #### 插曲
 
 spring会默认加载一些环境变量 environment = systemProperties + systemEnvironment
@@ -236,8 +259,9 @@ doCreateBean方法中，在调用populateBean后，会调用initializeBean方法
 
 ### @PostConstruct
 
-在postProcessBeforeInitialization之后，InitializingBean之前。
+由CommonAnnotationBeanPostProcessor -> InitDestroyAnnotationBeanPostProcessor驱动执行。
+也在postProcessBeforeInitialization过程中，看PostProcessor的先后顺序，InitializingBean之前。
 
 总结下这几个的顺序。
 
-postProcessBeanDefinitionRegistry > postProcessBeanFactory > postProcessBeforeInitialization > PostConstruct > InitializingBean > postProcessAfterInitialization
+postProcessBeanDefinitionRegistry > postProcessBeanFactory > postProcessBeforeInitialization 包含 PostConstruct > InitializingBean > postProcessAfterInitialization
