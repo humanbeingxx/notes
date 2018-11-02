@@ -1,0 +1,7 @@
+# 表达
+
+1. 首先入口时ApplicationContext的refresh方法，这个方法会先进行一些初始化，比如beanFactory、spring event。
+2. 完成这些初始化后，开始加载beanDefinition。这里就是读取xml配置，生成BeanDefinition实例，并注册到BeanDefinitionRegistry。
+3. 再进行bean的生成，具体用的是AbstractBeanFacotry的doGetBean方法。
+4. 默认用的是AutowireCapableBeanFactory创建实例。首先会初始化一个空的bean对象，然后用populate方法对bean进行注入，如果是依赖其他的bean，则递归的生成bean。
+5. 用了三级缓存解决循环依赖的问题。singletonObjects，earlySingletonObjects，objectFactory。初始化时，会将当前bean放入inCreation缓存，发生依赖时，判断是否已经处于初始化中，如果是，则从earlySingletonObjects中取。取不到会抛循环依赖异常。
