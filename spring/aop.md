@@ -97,6 +97,8 @@ todo
 
 我本地测试结果：around before -> before -> invoke -> around after -> after -> afterReturning
 
+***新发现：在一个aspect内部，确实是按上面顺序执行，但是有多个aspect，顺序就不定了。但是before类的肯定还是在after类的先执行***
+
 原理？？
 
 #### aop的加载
@@ -106,9 +108,15 @@ todo
 如果没有配置order，会按照内部规则排序。使用AspectJPrecedenceComparator。
 
 1. 首先使用AnnotationAwareOrderComparator排序。主要是获取不同Advisor上的order/priority注解（可以是class、method、AnnotatedElement？）没有配置order时，比较结果都是0。（ExposeInvocationInterceptor比较特殊，用来在整个链路上暴露当前执行的MethodInvocation。这个的order是Interger.MIN）
-2. 判断是否在一个aspect内。如果是，判断内部优先级。主要参考两个指标，一个是是否是after advice，另一个是AspectDeclarationOrder。declarationOrder是apsect类中方法的排序。内部计算规则（Around.class < Before.class < After.class < AfterReturning.class < AfterThrowing.class）。如果没有advice是after类型，则declarationOrder小的先于大的；如果有一个advice是after类型，则declarationOrder大的先于小的。所以排序后around先于before，after先于around，afterReturing先于after。
+2. 判断是否在一个aspect内。如果是，判断内部优先级。主要参考两个指标，一个是是否是after advice，另一个是AspectDeclarationOrder。declarationOrder是apsect类中方法的排序。内部计算规则（Around.class < Before.class < After.class < AfterReturning.class < AfterThrowing.class，如果是同类型的，则会按方法名排序）。如果没有advice是after类型，则declarationOrder小的先于大的；如果有一个advice是after类型，则declarationOrder大的先于小的。所以排序后around先于before，after先于around，afterReturing先于after。
 
 ***上面第2步提到了判断是否在一个aspect内。如果不是，会直接返回OrderComparator的结果。如果相等，那就看读入的顺序了。***
+
+#### 使用@Order指定顺序
+
+经测试，@Order只有加在class上才会生效，也就是说能指定不同aspect的执行顺序。同一个class内的方法上加了也没用，还是会按上面的顺序执行。
+但是@Order写了对method生效，而且也有从method上找Order注解的代码。哪个环节出问题了？
+根据spring官方文档，@Order在aop中，可以加在class上，也可以加在@Bean的method上。另外，也可以用在EventListener上，控制事件回调顺序。
 
 #### 执行顺序
 
