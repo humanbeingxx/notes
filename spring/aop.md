@@ -93,6 +93,47 @@ public Interface Pointcut {
 
 todo
 
+### before after around afterReturning afterThrowing 执行顺序
+
+我本地测试结果：around before -> before -> invoke -> around after -> after -> afterReturning
+
+***新发现：在一个aspect内部，确实是按上面顺序执行，但是有多个aspect，顺序就不定了。但是before类的肯定还是在after类的先执行***
+
+原理？？
+
+#### aop的加载
+
+获取到所有Advisor后，会排序。org.springframework.aop.framework.autoproxy.AbstractAdvisorAutoProxyCreator#sortAdvisors。
+
+如果没有配置order，会按照内部规则排序。使用AspectJPrecedenceComparator。
+
+1. 首先使用AnnotationAwareOrderComparator排序。主要是获取不同Advisor上的order/priority注解（可以是class、method、AnnotatedElement？）没有配置order时，比较结果都是0。（ExposeInvocationInterceptor比较特殊，用来在整个链路上暴露当前执行的MethodInvocation。这个的order是Interger.MIN）
+2. 判断是否在一个aspect内。如果是，判断内部优先级。主要参考两个指标，一个是是否是after advice，另一个是AspectDeclarationOrder。declarationOrder是apsect类中方法的排序。内部计算规则（Around.class < Before.class < After.class < AfterReturning.class < AfterThrowing.class，如果是同类型的，则会按方法名排序）。如果没有advice是after类型，则declarationOrder小的先于大的；如果有一个advice是after类型，则declarationOrder大的先于小的。所以排序后around先于before，after先于around，afterReturing先于after。
+
+***上面第2步提到了判断是否在一个aspect内。如果不是，会直接返回OrderComparator的结果。如果相等，那就看读入的顺序了。***
+
+#### 使用@Order指定顺序
+
+经测试，@Order只有加在class上才会生效，也就是说能指定不同aspect的执行顺序。同一个class内的方法上加了也没用，还是会按上面的顺序执行。
+但是@Order写了对method生效，而且也有从method上找Order注解的代码。哪个环节出问题了？
+根据spring官方文档，@Order在aop中，可以加在class上，也可以加在@Bean的method上。另外，也可以用在EventListener上，控制事件回调顺序。
+
+#### 执行顺序
+
+例子：aop的执行会走到ReflectiveMethodInvocation，成员interceptorsAndDynamicMethodMatchers = [ExposeInvocationInterceptor, AfterReturnadviceInteceptor, AspectJAfterAdviceInterceptor, AspectJAroundAdviceInterceptor, MethodBeforeAdviceIntecetptor]
+
+为什么执行顺序是 around before -> before -> invoke -> around after -> after -> afterReturning ？
+interceptor的遍历顺序和上述list一致，但是每个interceptor的动作不一样。
+
+1. ExposeInvocationInterceptor。将MethodInvocation放入ThreadLocal，然后继续执行 im.proceed()
+2. AfterReturnadviceInteceptor。先继续执行 im.proceed()，再执行afterReturn方法。
+3. AspectJAfterAdviceInterceptor。先继续执行 im.proceed()，再在finally中执行after方法。
+4. AspectJAroundAdviceInterceptor。先是一系列拼参数的动作，再直接调用around方法。around中有joinPoint.proceed();这里会继续执行interceptor链。
+5. MethodBeforeAdviceIntecetptor。先执行before，在继续执行 im.proceed()。
+6. 链执行完毕，开始反向执行。AspectJAroundAdviceInterceptor中proceed后面代码。
+7. AspectJAfterAdviceInterceptor。
+8. AfterReturnadviceInteceptor。
+
 ## AopContext
 
 ### 怎么实现在被代理类中currentProxy()方法返回有值，而在外部调用currentProxy()返回null？
