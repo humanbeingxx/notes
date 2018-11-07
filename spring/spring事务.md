@@ -43,6 +43,40 @@ PROPAGATION_NOT_SUPPORTED 有事务将老事务挂起，以非事务方式执行
 PROPAGATION_NEVER 非事务方式执行，有事务则异常。
 PROPAGATION_NESTED 没有事务新开一个，有事务则嵌套执行。并不是所有事务管理器都支持嵌套。
 
+### REQUIRES_NEW和NESTED的区别
+
+#### 隔离级别
+
+REQUIRES_NEW 使用单独的隔离级别。
+NESTED 沿用之前事务的隔离级别。
+
+#### 锁
+
+REQUIRES_NEW 需要重新获取锁。
+NESTED 沿用之前事务保持的锁。
+
+下面的代码展示了锁的获取情况。如果用NESTED，可以正常执行；如果用REQUIRES_NEW，则新事务会一直等待锁直到超时，而之前的事务被挂起，类似于死锁。
+
+```java
+@Override
+@Transactional(rollbackFor = RuntimeException.class)
+public void deleteTwiceWithNestedTransaction(String name) {
+    jobDao.deleteByName(name);
+    // 使用AopContext需要
+    ((JobServiceImpl) AopContext.currentProxy()).deleteTwiceWithNestedTransactionInner(name);
+}
+
+@Transactional(rollbackFor = RuntimeException.class, propagation = Propagation.NESTED)
+public void deleteTwiceWithNestedTransactionInner(String name) {
+    jobDao.deleteByName(name);
+}
+```
+
+#### 事务的提交与回滚
+
+REQUIRES_NEW 完全是独立的提交和回滚。外部事务的提交和回滚不会影响内部。
+NESTED 只有等到外部事务提交，才会提交；内部事务回滚只会回到savepoint，这个是创建nested事务时设置的，而外部事务的回滚，会使内部事务一起回滚。
+
 ### 事务方法调用非事务方法，为何非事务方法也在事务内部？
 
 获取事务是在org.springframework.transaction.support.AbstractPlatformTransactionManager#getTransaction。如果参数TransactionDefinition是null，会生成默认的TransactionDefinition，这个默认的传播级别是required。

@@ -117,3 +117,6 @@ private List<String> configx;
     <scope>import</scope>
 </dependency>
 ```
+
+## Redis
+
