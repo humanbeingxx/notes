@@ -120,3 +120,76 @@ private List<String> configx;
 
 ## Redis
 
+### @Cacheable
+
+`@Cacheable(value = "redisCache", key = "'job_' + #name")`
+
+类似一个around操作。调用方法前，先尝试从缓存中获取，获取不到再调用方法。调用完成后，如果condition满足，则会将数据写入redis。
+注解可以有另外两个参数，condition和unless。
+condition只能用到入参上，unless能用到返回结果上。
+
+```java
+@Cacheable(value = "redisCache", condition = "#name.length() > 4",
+        unless = "#result == null", key = "'job_' + #name")
+public Job getOne(String name) {
+    Job job = jobDao.selectOne(name);
+    return job;
+}
+```
+
+上面的例子，condition从参数判断结果是否写入redis，unless从结果判断是否写入redis（不满足unless条件的才写入）。
+
+#### 为什么不能用condition判断result
+
+condition的计算是在被代理方法之前进行的，此时用户计算condition的result对象是个常量`CacheOperationExpressionEvaluator.NO_RESULT`。并且在spel进行运算时，创建的运算符会判断操作数是不是这个常量，如果是，则result会设置为null。
+所以一般的判断都不会满足。
+
+#### condition能不能控制读取是否使用cache？
+
+结果是能。
+造个case，redis有key，db中没有，结果返回为空。
+
+#### condition不满足，unless满足，能不能写入cache？
+
+也不能。原因如下
+
+```java
+// 下面代码是 CacheAspectSupport#execute中condition判断执行的地方。
+// 如果condition满足，会向这个put的list中放入一个操作。如果不满足就不会有put操作
+
+List<CachePutRequest> cachePutRequests = new LinkedList<>();
+if (cacheHit == null) {
+    collectPutRequests(contexts.get(CacheableOperation.class),
+            CacheOperationExpressionEvaluator.NO_RESULT, cachePutRequests);
+}
+
+// put时对unless的判断是在实际put操作时进行的 CacheOperationContext#canPutToCache
+```
+
+***由此可见condition控制的是整个方法，包括 读取 + 写入***
+
+### cache的序列化
+
+使用RedisCacheConfiguration配置。默认的序列化是JdkSerializationRedisSerializer。
+如果要使用json，可以用FastJsonRedisSerializer。配置如下
+
+```java
+@Bean
+public static RedisCacheConfiguration defaultCacheConfig() {
+    // 这里必须开启autotype，并将类信息写入json，否则无法序列化成需要的类。
+    ParserConfig.getGlobalInstance().setAutoTypeSupport(true);
+    FastJsonConfig fastJsonConfig = new FastJsonConfig();
+    fastJsonConfig.setSerializerFeatures(SerializerFeature.WriteClassName);
+
+    FastJsonRedisSerializer<Object> fastJsonRedisSerializer = new FastJsonRedisSerializer<>(Object.class);
+    fastJsonRedisSerializer.setFastJsonConfig(fastJsonConfig);
+
+    RedisSerializationContext.SerializationPair<Object> serializer
+            = RedisSerializationContext.SerializationPair.fromSerializer(fastJsonRedisSerializer);
+    return RedisCacheConfiguration
+            .defaultCacheConfig()
+            .prefixKeysWith("cache_")
+            .serializeValuesWith(serializer);
+}
+
+```
