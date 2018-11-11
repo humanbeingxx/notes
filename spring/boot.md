@@ -118,6 +118,14 @@ private List<String> configx;
 </dependency>
 ```
 
+### 上传文件用什么？
+
+书中写的是用Part接收参数，但是我用了之后发现实际的参数类型是ApplicationPart，并没有Part中的全部方法。最终还是用的MultipartFile。
+
+### interceptor和filter的区别
+
+filter可以替换chain调用的request实现修改http参数的功能。interceptor能实现吗？
+
 ## Redis
 
 ### @Cacheable
