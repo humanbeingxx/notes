@@ -61,6 +61,42 @@ spring:
 
 如果pom和yml中都配置，以pom为准。如果pom没有配置，默认8080，用外部tomcat启动，yml中的server.port不生效。
 
+### filter
+
+```java
+@Configuration
+public class FilterConfiguration {
+    @Bean
+    public JobSalaryEncryptFilter jobSalaryEncryptFilter() {
+        return new JobSalaryEncryptFilter();
+    }
+
+    @Bean
+    public FilterRegistrationBean jobEncryptConfig() {
+        FilterRegistrationBean<Filter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(jobSalaryEncryptFilter());
+        registrationBean.setUrlPatterns(Lists.newArrayList("/job/*"));
+        registrationBean.setName("jobSalaryEncryptFilter");
+        return registrationBean;
+    }
+}
+```
+
+### Valid
+
+在controller中用DataBind
+
+```java
+@InitBinder(value = {"job", "jobs"})
+public void bind(WebDataBinder binder) {
+    binder.addValidators(new AddressValidator());
+}
+```
+
+注意要用addValidtors，不要用set，否则默认的ValidatorAdapter会被覆盖掉。ValidatorAdapter包装了hibernate的valid实现。
+
+### converter
+
 ## 问题
 
 ## @Resource @Autowired有什么区别
