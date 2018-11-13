@@ -61,6 +61,61 @@ spring:
 
 如果pom和yml中都配置，以pom为准。如果pom没有配置，默认8080，用外部tomcat启动，yml中的server.port不生效。
 
+### 参数校验
+
+使用方法：在参数上加@Valid开启验证；在字段上加javax.validation.constraints下的各种注解做验证条件。
+
+```java
+@RequestMapping("addPlain")
+@ResponseBody
+public String add(@Valid Job job, Errors errors) {
+    if (errors.getAllErrors().size() > 0) {
+        return errors.getAllErrors().stream().map(DefaultMessageSourceResolvable::getDefaultMessage).collect(Collectors.joining(";"));
+    }
+    jobService.insertOne(job);
+    return "操作成功";
+}
+
+```
+
+spring有默认的参数验证器，ValidtorAdpater，里面包装的是hibernate的验证器。
+可以自定义验证器，implements Validator。
+通过@InitBinder绑定。InitBinder上的参数value表示的是需要这个binder需要处理的参数名。默认是全部匹配。和@Valid的关系是“且”。
+
+```java
+
+//下面是InitBinder.value的注释
+/**
+* The names of command/form attributes and/or request parameters
+* that this init-binder method is supposed to apply to.
+* <p>Default is to apply to all command/form attributes and all request parameters
+* processed by the annotated handler class. Specifying model attribute names or
+* request parameter names here restricts the init-binder method to those specific
+* attributes/parameters, with different init-binder methods typically applying to
+* different groups of attributes or parameters.
+*/
+
+@InitBinder
+public void bind(WebDataBinder binder) {
+    binder.addValidators(new AddressValidator());
+}
+```
+
+注意上面用的是addValidators，不要用setValidators，否则会覆盖掉默认的验证器。
+
+### 重定向
+
+`return "redirect:/xxx";`
+
+可以用过RedirectAttributes在重定向时带入数据。
+
+```java
+public void redirect(RedirectAttributes redirect) {
+    redirect.addFlashAttribute(data);
+    return "redirect:/xxx";
+}
+```
+
 ## 问题
 
 ## @Resource @Autowired有什么区别
@@ -125,6 +180,55 @@ private List<String> configx;
 ### interceptor和filter的区别
 
 filter可以替换chain调用的request实现修改http参数的功能。interceptor能实现吗？
+
+### 为什么@ExceptionHandler不能处理404
+
+#### 尝试一：用@ExceptionHandler
+
+ExceptionHandlerExceptionResolver#getExceptionHandlerMethod 获取异常处理方法时，由于找不到映射的controller方法，返回null。
+之后使用DefaultHandlerExceptionResolver处理404异常。
+
+#### 尝试二：自定义HandlerExceptionResolver，并在Application驱动类中使用configureHandlerExceptionResolvers
+
+手动configure后，其他的Resolver不会注册，之前配置的@ExceptionHandler失效了。。。
+
+#### 解决方案
+
+重新定义一个ControllerAdvice，但是不限制package和annotation。
+如果配置了basePackages或者assignableTypes或者annotations，在ExceptionHandlerExceptionResolver判断是否处理时（ControllerAdviceBean#isApplicableToBeanType）会匹配这三个条件。
+并且，可以在Advice上加Order来控制执行顺序。默认是Integer.MAX_VALUE。
+
+#### @ResponseStatus是配合ResponseStatusExceptionResolver使用
+
+ResponseStatusExceptionResolver判断是否处理，主要依赖于异常的类型和异常拥有的注解。
+
+```java
+protected ModelAndView doResolveException(
+        HttpServletRequest request, HttpServletResponse response, @Nullable Object handler, Exception ex) {
+
+    try {
+        if (ex instanceof ResponseStatusException) {
+            return resolveResponseStatusException((ResponseStatusException) ex, request, response, handler);
+        }
+
+        ResponseStatus status = AnnotatedElementUtils.findMergedAnnotation(ex.getClass(), ResponseStatus.class);
+        if (status != null) {
+            return resolveResponseStatus(status, request, response, handler, ex);
+        }
+
+        if (ex.getCause() instanceof Exception) {
+            return doResolveException(request, response, handler, (Exception) ex.getCause());
+        }
+    }
+    catch (Exception resolveEx) {
+        if (logger.isWarnEnabled()) {
+            logger.warn("Failure while trying to resolve exception [" + ex.getClass().getName() + "]", resolveEx);
+        }
+    }
+    return null;
+}
+
+```
 
 ## Redis
 
