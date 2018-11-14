@@ -79,8 +79,8 @@ public void refresh() throws BeansException, IllegalStateException {
 
 org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#createBean() 真正创建bean实例的地方。
 
-判断类构造器和bean的构造方式。如果bean定义有构造参数 或者 autowire方式是AUTOWIRE_CONSTRUCTOR 或者 没有空的空白的构造器，都会走指定构造器。
-否则，就用空白构造器，先实例化一个空白的对象，并用一个BeanWrapper包装。
+判断类构造器和bean的构造方式。如果bean定义有构造参数 或者 autowire方式是AUTOWIRE_CONSTRUCTOR 或者 没有空的空白的构造器，都会走指定构造器。
+否则，就用空白构造器，先实例化一个空白的对象，并用一个BeanWrapper包装。
 
 org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#populateBean 完成了对象内成员的赋值。
 
@@ -122,11 +122,11 @@ bean生成的调用链是
 7. 调用`org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#populateBean`开始填充BBService的依赖。此时会发现需要加载AAService。
 8. 重复上面1~5步骤，当给AAService开始populateBean时，发现需要BBService。
 9. 此时从缓存singletonObjects和earlySingletonObjects都没有发现BBService，但是可以获取到BBService的BeanFactory。获取BBService并将它放入缓存earlySingletonObjects中。同时从缓存singletonFactories中移除BBService。
-10. 将BBService注入AAService后完成AAService的构建。
+10. 将BBService注入AAService后完成AAService的构建。
 11. 调用`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#afterSingletonCreation`将AA从singletonsCurrentlyInCreation中移除。
-12. 调用`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#addSingleton`将AAService从singletonFactories和earlySingletonObjects中移除，并加入singletonObjects中。
-13. 继续执行BBService的populate，此时可以从singletonObjects中获取到AAService，完成。
-14. 依次调用afterSingletonCreation和addSingleton，结束对BBService的处理。
+12. 调用`org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#addSingleton`将AAService从singletonFactories和earlySingletonObjects中移除，并加入singletonObjects中。
+13. 继续执行BBService的populate，此时可以从singletonObjects中获取到AAService，完成。
+14. 依次调用afterSingletonCreation和addSingleton，结束对BBService的处理。
 
 为什么要一个ObjectFactory缓存？
 
@@ -208,7 +208,7 @@ load-on-startup表示容器启动时，加载这个servlet。
 
 ### mvc容器创建过程
 
-从DispatcherServlet的init()方法开始。
+从DispatcherServlet的init()方法开始。
 
 从load-on-startup到init()大致流程如下：
 

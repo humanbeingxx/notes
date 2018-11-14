@@ -14,7 +14,7 @@
 </resources>
 ```
 
-- 如果加上如下，则会进行文件（而不是文件内容）维度的覆盖和合并。而且是哪个resource在pom中的位置靠前，优先使用哪个
+- 如果加上如下，则会进行文件（而不是文件内容）维度的覆盖和合并。而且是哪个resource在pom中的位置靠前，优先使用哪个
 
 ```xml
 <directory>src/main/resources</directory>
@@ -49,9 +49,9 @@
 
 ### filter = true
 
-- 表示需要用pom中变量替换resource中文件的变量${}。
+- 表示需要用pom中变量替换resource中文件的变量${}。
 - 此时用include指定需要替换的文件或用exclude去掉不用替换的文件，默认都参与替换。
-- **特别注意，用了filter会使文件覆盖规则变化**
+- **特别注意，用了filter会使文件覆盖规则变化**
 
 ```xml
 覆盖时，使用resources中文件
@@ -80,7 +80,7 @@
 </resources>
 ```
 
-resources使用filter | local使用filter | 顺序 | 结果
+resources使用filter | local使用filter | 顺序 | 结果
 ---------|----------|---------|----------
 不使用 | 使用 | local先 | 用local
 不使用 | 使用 | local后 | 用local
@@ -95,8 +95,8 @@
 - **又要注意，include和exclude不仅用于filter，更会对是否将文件作为资源文件这个判断生效**。如下
 
 ```xml
-resource中有三个文件1.properties, 2.properties, 3.properties
-如何实现将三个文件都作为资源文件，且只替换2.properties？
+resource中有三个文件1.properties, 2.properties, 3.properties
+如何实现将三个文件都作为资源文件，且只替换2.properties？
 
 <resources>
     <resource>
@@ -122,7 +122,7 @@
 
 ### 外层build-resource中的filter
 
-- 如果配置的文件没有冲突，可以同时生效
-- 冲突时，比如build中exclude，profile中include，最终会include；如果是profile中exclude，build中exclude，还是会include
+- 如果配置的文件没有冲突，可以同时生效
+- 冲突时，比如build中exclude，profile中include，最终会include；如果是profile中exclude，build中exclude，还是会include
 
 ## TODO 遇到其他阴险的问题继续补充

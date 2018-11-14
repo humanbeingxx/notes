@@ -16,7 +16,7 @@
 
 expireAfterWrite, expireAfterAccess
 
-get时如果key不存在，会尝试加载，并且所有线程等会等待，但只有一个线程会执行load操作。
+get时如果key不存在，会尝试加载，并且所有线程等会等待，但只有一个线程会执行load操作。
 
 ### 定时刷新
 
@@ -28,7 +28,7 @@ freshAfterWrite
 
 也是freshAfterWrite，但是load中用异步操作。所有get都立即返回旧值。
 
-可以解决短时间内访问大量不同key的情况。
+可以解决短时间内访问大量不同key的情况。
 
 ## 实现细节
 

@@ -8,7 +8,7 @@
 2. 开始找HandlerMapping。HandlerMapping负责映射用户的URL和对应的处理类，执行过程中默认加载了两个RequestMappingHandlerMapping(处理）和BeanNameUrlHandlerMapping（基于beanName找映射，需要配置）。尝试RequestMappingHandlerMapping，会根据request中的url和已经加载的映射做匹配，匹配到了，返回RequestMappingHandlerMapping。
 3. 找到合适的HandlerAdapter。主要是为了解决不同Handler不同处理方式。见 [spring概念](./spring相关概念.md#适配器模式)。开始执行。
     1. 先是HandlerExecutionChain.applyPreHandle，这里会执行interceptors的preHandle。
-    2. 再是HandlerAdapter.handle。会执行ServletInvocableHandlerMethod#invokeAndHandle，invoke后会用注册号的returnValueHandlers来处理返回结果。不同的returnValueHandlers有不同的处理类型，根据这个来选择合适的handler。我们这个场景会选择到StringHttpMessageConverter并将结果写到输出流中，对于前端来说一个请求就完成了。
+    2. 再是HandlerAdapter.handle。会执行ServletInvocableHandlerMethod#invokeAndHandle，invoke后会用注册号的returnValueHandlers来处理返回结果。不同的returnValueHandlers有不同的处理类型，根据这个来选择合适的handler。我们这个场景会选择到`并将结果写到输出流中，对于前端来说一个请求就完成了。
     3. 执行完后，是applyPostHandle。这里会执行interceptors的postHandle。
 4. 见3.2。如果是要返回一个页面，执行的handler不一样。比如简单返回一个jsp，则是一个ViewNameMethodReturnValueHandler，将view的name设置到ModelAndViewContainer中。
 5. 返回一个ModelAndView到DispatcherServlet。
@@ -78,3 +78,23 @@ org.springframework.web.servlet.RequestToViewNameTranslator=org.springframework.
 
 org.springframework.web.servlet.ViewResolver=org.springframework.web.servlet.view.InternalResourceViewResolver
 ```
+
+### 返回一个viewName和json
+
+返回一个json需要用@ResponseBody，这里会用RequestResponseBodyMethodProcessor处理返回结果，RequestResponseBodyMethodProcessor#handleReturnValue这个方法会直接在outputStream中写入数据，前端可以立即接受到返回值。
+
+返回一个viewName会用到ViewNameMethodReturnValueHandler。
+这个handler会拼好ModelAndView，在DispatcherServlet#render中使用。render首先使用注册好的viewResolvers定位到view，再调用view.render。最后通过tomcat返回给前端（这个是tomcat的源码）。
+
+#### 不同的handler
+
+- ModelAndViewMethodReturnValueHandler 判断返回值是否是ModelAndView
+- ModelMethodProcessor 判断返回值是否是Model
+- ViewMethodReturnValueHandler 判断返回值是否是View
+- HttpEntityMethodProcessor 判断返回值是HttpEntity，且不是RequestEntity。
+- ModelAttributeMethodProcessor 判断方法上是否有ModelAttribute注解。这个处理器上annotationNotRequired==false
+- RequestResponseBodyMethodProcessor 判断返回值方法上是否有ResponseBody注解。或者返回值所在容器（）是否有ResponseBody注解。
+- ViewNameMethodReturnValueHandler 判断返回值是否是void或者CharSequence。
+- MapMethodProcessor 判断返回值是否是map
+- ModelAttributeMethodProcessor 这个处理器上annotationNotRequired为true，只要不是简单类型，都会判断为true。
+- 其他。。。

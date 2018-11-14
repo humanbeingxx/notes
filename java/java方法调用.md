@@ -73,7 +73,7 @@ public class OverwriteSequenceTest {
 
 #### vtable 结构
 
-在子类的vtable中，如果子类没有override，则父子类相同方法的地址入口一致。否则用子类入口覆盖父类入口。
+在子类的vtable中，如果子类没有override，则父子类相同方法的地址入口一致。否则用子类入口覆盖父类入口。
 
 ```java
 class A {  
@@ -100,7 +100,7 @@ B的vtable是 {B.A}{A.A(String)}{B.B}
 itableOffsetEntry 保存的是interface,和对应的itableMethodEntry的偏移。
 当有调用时，遍历itableOffsetEntry，找到匹配的entry后，再定位到itableMethodEntry。
 
-### 静态分派和动态分派是可以同时进行的
+### 静态分派和动态分派是可以同时进行的
 
 ```java
 
@@ -115,4 +115,4 @@ son.choice(new HuaWei());
 
 上面的代码，实际会先静态分派，在动态分派。
 静态分派时，会考察静态类型和参数类型，属于多（宗量）分派。实际生成的是Father.choice(IPhone)和Father.choice(HuaWei)。
-动态分派时，只考虑方法接收对象的实际类型，属于单分派。
+动态分派时，只考虑方法接收对象的实际类型，属于单分派。
