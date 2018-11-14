@@ -181,6 +181,123 @@ public class RestTemplateConfig {
         return HttpClients.custom().setConnectionManager(connectionManager).build();
     }
 }
+
+@Configuration
+public class RestTemplateConfig {
+
+    @Bean("restTemplate")
+    public RestTemplate pooledRestTemplate() {
+        RestTemplate template = new RestTemplate();
+        template.setRequestFactory(pooledFactory());
+        template.setMessageConverters(extendMessageConverters(template.getMessageConverters()));
+        ;
+        return template;
+    }
+
+    // 自定义messageConverter，这里主要是替换StringHttpMessageConverter字符集
+    private List<HttpMessageConverter<?>> extendMessageConverters(List<HttpMessageConverter<?>> origin) {
+        List<HttpMessageConverter<?>> extend = Lists.newArrayList();
+        for (HttpMessageConverter<?> converter : origin) {
+            if (converter instanceof StringHttpMessageConverter) {
+                extend.add(new StringHttpMessageConverter(Charsets.UTF_8));
+            } else if (converter instanceof GsonHttpMessageConverter
+                    || converter instanceof JsonbHttpMessageConverter) {
+                continue;
+            } else {
+                extend.add(converter);
+            }
+        }
+        return extend;
+    }
+
+    // 这里原来的版本是移除原装的StringHttpMessageConverter，添加个新的，但是出了问题。
+    // 用template做请求，返回的是个中文String，此时会用到jacksonConverter，出现了utf8字符无法解析的问题。
+    // StringHttpMessageConverter内部会用指定的charset将流读成String
+
+    // private void extendMessageConverters(List<HttpMessageConverter<?>> origin) {
+    //     origin.removeIf(converter -> converter instanceof StringHttpMessageConverter
+    //             || converter instanceof GsonHttpMessageConverter
+    //             || converter instanceof JsonbHttpMessageConverter);
+    //     origin.add(new StringHttpMessageConverter(Charsets.UTF_8));
+    // }
+
+    private ClientHttpRequestFactory pooledFactory() {
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
+        factory.setHttpClient(pooledClient());
+        // 从连接池获取连接的超时事件
+        factory.setConnectionRequestTimeout(500);
+        factory.setConnectTimeout(500);
+        factory.setReadTimeout(1000);
+        return factory;
+    }
+
+    private HttpClient pooledClient() {
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setMaxTotal(20);
+        connectionManager.setValidateAfterInactivity(2000);
+        return HttpClients.custom().setConnectionManager(connectionManager).build();
+    }
+}
+```
+
+#### 对jackson的额外观察
+
+由于上面的问题，我对ObjectMapper做了额外的实验。
+
+```java
+
+// Invalid UTF-8 start byte 0x95
+@Test
+public void testJackson() throws IOException {
+    String text = "数据重复";
+    byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+    ObjectMapper objectMapper = new ObjectMapper();
+    String value = objectMapper.readValue(bytes, String.class);
+}
+
+// 通过
+@Test
+public void testJackson() throws IOException {
+    String text = "123";
+    byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+    ObjectMapper objectMapper = new ObjectMapper();
+    String value = objectMapper.readValue(bytes, String.class);
+}
+
+// Unrecognized token '数据重复': was expecting ('true', 'false' or 'null')
+@Test
+public void testJackson() throws IOException {
+    String text = "数据重复";
+    ObjectMapper objectMapper = new ObjectMapper();
+    String value = objectMapper.readValue(text, String.class);
+}
+
+// 通过
+@Test
+public void testJackson() throws IOException {
+    String text = "{\"数据重复\":1}";
+    byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+    ObjectMapper objectMapper = new ObjectMapper();
+    Map value = objectMapper.readValue(bytes, Map.class);
+}
+
+// 通过
+@Test
+public void testJackson() throws IOException {
+    String text = "{\"数据重复\":1}";
+    ObjectMapper objectMapper = new ObjectMapper();
+    Map value = objectMapper.readValue(text, Map.class);
+}
+
+// Unexpected character ('d' (code 100)): Expected space separating root-level values
+@Test
+public void testJackson() throws IOException {
+    String text = "123data";
+    byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+    ObjectMapper objectMapper = new ObjectMapper();
+    String value = objectMapper.readValue(bytes, String.class);
+    System.out.println(value);
+}
 ```
 
 ## 问题
