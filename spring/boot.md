@@ -136,6 +136,53 @@ public void redirect(RedirectAttributes redirect) {
 }
 ```
 
+### RestTemplate
+
+和其他template一样，spring对restful的http请求也做了一层抽象。
+
+#### 自定义RestTemplate
+
+默认new RestTemplate()，底层用的是HttpURLConnection，如果想换成apache的HttpClient，配置如下：
+
+```java
+@Configuration
+public class RestTemplateConfig {
+
+    @Bean("restTemplate")
+    public RestTemplate pooledRestTemplate() {
+        RestTemplate template = new RestTemplate();
+        template.setRequestFactory(pooledFactory());
+        extendMessageConverters(template.getMessageConverters());
+        return template;
+    }
+
+    // 自定义messageConverter，这里主要是替换StringHttpMessageConverter字符集
+    private void extendMessageConverters(List<HttpMessageConverter<?>> origin) {
+        origin.removeIf(converter -> converter instanceof StringHttpMessageConverter
+                || converter instanceof GsonHttpMessageConverter
+                || converter instanceof JsonbHttpMessageConverter);
+        origin.add(new StringHttpMessageConverter(Charsets.UTF_8));
+    }
+
+    private ClientHttpRequestFactory pooledFactory() {
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
+        factory.setHttpClient(pooledClient());
+        // 从连接池获取连接的超时事件
+        factory.setConnectionRequestTimeout(500);
+        factory.setConnectTimeout(500);
+        factory.setReadTimeout(1000);
+        return factory;
+    }
+
+    private HttpClient pooledClient() {
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setMaxTotal(20);
+        connectionManager.setValidateAfterInactivity(2000);
+        return HttpClients.custom().setConnectionManager(connectionManager).build();
+    }
+}
+```
+
 ## 问题
 
 ## @Resource @Autowired有什么区别
