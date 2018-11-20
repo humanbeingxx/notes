@@ -320,6 +320,88 @@ JobDetail是quartz中任务的定义单位，包含了Job的class和执行任务
 
 如果isDurable = false，则不能单独addJob，且当job没有trigger关联时，会自动删除。
 
+### trigger
+
+#### SimpleTrigger
+
+支持重复执行repeatCount次，以及每次执行的时间间隔repeat_interval。如果设置了end_time，则会忽略repeatCount。
+
+构建示例
+
+```java
+trigger = newTrigger()
+    .withIdentity("trigger3", "group1")
+    .startAt(futureDate(5, IntervalUnit.MINUTE)) // 5min之后
+    .withSchedule(simpleSchedule()
+        .withIntervalInSeconds(10)
+        .withRepeatCount(10))
+    .forJob(myJob)
+    .build();
+```
+
+##### simple的misfire策略(todo)
+
+MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY
+MISFIRE_INSTRUCTION_FIRE_NOW
+MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT
+MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT
+MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT
+MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT
+
+#### CronTrigger
+
+##### cron 表达式
+
+表达式 `$1 $2 $3 $4 $5 $6 $7`
+
+1. Seconds
+2. Minutes
+3. Hours
+4. Day-of-Month
+5. Month
+6. Day-of-Week
+7. Year (optional field)
+
+'?' 表示“没有指定任何值”。在quartz中Day-of-Month和Day-of-Week是互斥的，两个字段不能同时有值，所以用?填充。
+
+'/' 的误区。以 `3/10 * * * * ?` 为例，表示每10s执行一次，误区是并不是每次都是隔10s执行，而是表示在每分钟的 3s, 13s, 23s, 33s, 43s, 53s 执行。
+
+'L' 的含义。可以用在Day-of-Month和Day-of-Week字段上。用在Day-of-Month上，L表示每个月的最后一天，L-5表示每个月的倒数第6天。用在Day-of-Week上表示每个月的最后一个星期x，例如 `0 0 0 ? * 3L` 表示每个月最后一个星期二。
+
+'#' 表示第N个星期X。例如 `0 0 0 ? * 2#1` 表示每个月的第一个星期一。
+
+可以用','表示多个值。用'-'表示范围。
+
+##### cron的misfire策略
+
+```java
+public void updateAfterMisfire(org.quartz.Calendar cal) {
+    int instr = getMisfireInstruction();
+
+    if(instr == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY)
+        return;
+
+    if (instr == MISFIRE_INSTRUCTION_SMART_POLICY) {
+        instr = MISFIRE_INSTRUCTION_FIRE_ONCE_NOW;
+    }
+
+    if (instr == MISFIRE_INSTRUCTION_DO_NOTHING) {
+        Date newFireTime = getFireTimeAfter(new Date());
+        while (newFireTime != null && cal != null
+                && !cal.isTimeIncluded(newFireTime.getTime())) {
+            newFireTime = getFireTimeAfter(newFireTime);
+        }
+        setNextFireTime(newFireTime);
+    } else if (instr == MISFIRE_INSTRUCTION_FIRE_ONCE_NOW) {
+        setNextFireTime(new Date());
+    }
+}
+```
+
+- MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY。忽略本次misfire，会导致任务重复执行。
+- MISFIRE_INSTRUCTION_FIRE_ONCE_NOW。立即执行一次，将newFireTime设置为当前时间。
+- MISFIRE_INSTRUCTION_DO_NOTHING。不立即执行，将newFireTime设置为下个可用的fireTime。
+
 ### 问题 && 新发现
 
 #### job必须有无参构造器？
@@ -330,9 +412,11 @@ JobDetail是quartz中任务的定义单位，包含了Job的class和执行任务
 #### 项目启动时会同时执行同一个任务
 
 目前看原因是misFire，也就是说在项目关闭期间未执行的任务会再次执行。但问题是，我配置的misFire策略是MISFIRE_INSTRUCTION_DO_NOTHING，这样应该不会重复执行。trigger表中的type是cron，misfire_instr也是2。
-还有一种SimpleTrigger实现，它里面的code2对应的是MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT，现象和这个策略完全一致，why?
+
+MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY，现象和这个策略完全一致，why?
 
 *经查看源码，发现是调度时的策略问题。调度的核心类是QuartzSchedulerThread，run方法是一个while(!halted.get())的循环，只要没有halted，则会无限循环。*
+*（事实证明采用MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY这个策略也会出现重复执行）*
 
 当发现当前有可用工作线程时，会用下面方法获取triggers。
 
@@ -357,6 +441,7 @@ now = System.currentTimeMillis();
 long triggerTime = triggers.get(0).getNextFireTime().getTime();
 long timeUntilTrigger = triggerTime - now;
 
+//之前没执行的任务，这里小于0
 while(timeUntilTrigger > 2) {
     if (triggers.size() == 1 && triggers.get(0).getJobKey().getName().contains("Publish")) {
         log.info("@323");
