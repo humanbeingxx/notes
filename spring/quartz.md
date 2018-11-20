@@ -331,3 +331,138 @@ JobDetail是quartz中任务的定义单位，包含了Job的class和执行任务
 
 目前看原因是misFire，也就是说在项目关闭期间未执行的任务会再次执行。但问题是，我配置的misFire策略是MISFIRE_INSTRUCTION_DO_NOTHING，这样应该不会重复执行。trigger表中的type是cron，misfire_instr也是2。
 还有一种SimpleTrigger实现，它里面的code2对应的是MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT，现象和这个策略完全一致，why?
+
+*经查看源码，发现是调度时的策略问题。调度的核心类是QuartzSchedulerThread，run方法是一个while(!halted.get())的循环，只要没有halted，则会无限循环。*
+
+当发现当前有可用工作线程时，会用下面方法获取triggers。
+
+```java
+// now + idleWaitTime -> noLaterThan，大于0时，JobStore只会返回触发时间不小于这个时间的trigger
+// 例如入参是 20:00:05，trigger时间是 20:00:01 和 20:00:06，只会返回 20:00:01 这个
+triggers = qsRsrcs.getJobStore().acquireNextTriggers(
+                                now + idleWaitTime,
+                                ath.min(availThreadCount,
+                                qsRsrcs.getMaxBatchSize()),
+                                qsRsrcs.getBatchTimeWindow());
+
+```
+
+再看下面一段代码，这段代码里面会判断如果trigger时间和当前时间差在一定范围内，会认为是正常误差，仍然执行，否则会清除triggers，也就是不再触发任何trigger。
+整体逻辑上来说，当下次触发时间和当前时间差了2ms以上时，会判断是否在接受误差内（持久化70ms，非持久化7ms），如果在则仍会执行，否则将本次调度的trigger列表清空。
+所以当trigger触发时间小于当前时间时，肯定能触发，而大于当前时间70ms以上时，则不能触发（一般能正常执行的都是走这个逻辑）。
+
+```java
+
+now = System.currentTimeMillis();
+long triggerTime = triggers.get(0).getNextFireTime().getTime();
+long timeUntilTrigger = triggerTime - now;
+
+while(timeUntilTrigger > 2) {
+    if (triggers.size() == 1 && triggers.get(0).getJobKey().getName().contains("Publish")) {
+        log.info("@323");
+    }
+    synchronized (sigLock) {
+        if (halted.get()) {
+            break;
+        }
+        if (!isCandidateNewTimeEarlierWithinReason(triggerTime, false)) {
+            try {
+                // we could have blocked a long while
+                // on 'synchronize', so we must recompute
+                now = System.currentTimeMillis();
+                timeUntilTrigger = triggerTime - now;
+                if(timeUntilTrigger >= 1)
+                    sigLock.wait(timeUntilTrigger);
+            } catch (InterruptedException ignore) {
+            }
+        }
+    }
+    if(releaseIfScheduleChangedSignificantly(triggers, triggerTime)) {
+        break;
+    }
+    now = System.currentTimeMillis();
+    timeUntilTrigger = triggerTime - now;
+}
+
+private boolean releaseIfScheduleChangedSignificantly(List<OperableTrigger> triggers, long triggerTime) {
+    if (isCandidateNewTimeEarlierWithinReason(triggerTime, true)) {
+        log.info("trigger 被清除了！！！");
+
+        // above call does a clearSignaledSchedulingChange()
+        for (OperableTrigger trigger : triggers) {
+            qsRsrcs.getJobStore().releaseAcquiredTrigger(trigger);
+        }
+        triggers.clear();
+        return true;
+    }
+    return false;
+}
+
+private boolean isCandidateNewTimeEarlierWithinReason(long oldTime, boolean clearSignal) {
+
+    // So here's the deal: We know due to being signaled that 'the schedule'
+    // has changed.  We may know (if getSignaledNextFireTime() != 0) the
+    // new earliest fire time.  We may not (in which case we will assume
+    // that the new time is earlier than the trigger we have acquired).
+    // In either case, we only want to abandon our acquired trigger and
+    // go looking for a new one if "it's worth it".  It's only worth it if
+    // the time cost incurred to abandon the trigger and acquire a new one
+    // is less than the time until the currently acquired trigger will fire,
+    // otherwise we're just "thrashing" the job store (e.g. database).
+    //
+    // So the question becomes when is it "worth it"?  This will depend on
+    // the job store implementation (and of course the particular database
+    // or whatever behind it).  Ideally we would depend on the job store
+    // implementation to tell us the amount of time in which it "thinks"
+    // it can abandon the acquired trigger and acquire a new one.  However
+    // we have no current facility for having it tell us that, so we make
+    // a somewhat educated but arbitrary guess ;-).
+
+    synchronized(sigLock) {
+
+        if (!isScheduleChanged()){
+            return false;
+        }
+
+        boolean earlier = false;
+
+        //这里一般都是0
+        if(getSignaledNextFireTime() == 0) {
+            earlier = true;
+        }
+        else if(getSignaledNextFireTime() < oldTime ) {
+            earlier = true;
+        }
+
+        if(earlier) {
+            // so the new time is considered earlier, but is it enough earlier?
+            long diff = oldTime - System.currentTimeMillis();
+            if(diff < (qsRsrcs.getJobStore().supportsPersistence() ? 70L : 7L))
+                earlier = false;
+        }
+
+        if(clearSignal) {
+            clearSignaledSchedulingChange();
+        }
+
+        return earlier;
+    }
+}
+```
+
+我的case原因：
+
+由于我们之前unittest结束时，仍然有定时任务未执行，此时在qrtz_triggers表中，会保存next_fire_time。
+测试时一般调度都是2、3秒执行一次，所以一般next_fire_time都小于循环触发时的时间，总能取到。
+循环每次执行都会更新next_fire_time，但是对于一个3s一次的任务来说，每次next_fire_time都只会加3s，而项目启动一般都需要10s左后，所以会重复多次。
+
+我后面又做了测试，上次test执行完到再次循环，隔了15s左右，结果确实重复执行了5次。同时我打出了triggertime和now的差值，如下可见，每次都差了3s左右。
+
+```txt
+1542686544000, 1542686553961, -9961
+1542686547000, 1542686554308, -7308
+1542686550000, 1542686554400, -4400
+1542686553000, 1542686554446, -1446
+```
+
+源码中获取trigger默认是30s的超时，也就是说next_fire_time在当前时间30s之前的，不会再考虑调度，所以30s后再启动，不会出现重复执行。
