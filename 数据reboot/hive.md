@@ -26,3 +26,7 @@ collection items terminated by '-'
 map keys terminated by ':'
 location '/user/xiaoshuang.cui/hive_data/second_test';
 ```
+
+## hiveserver2
+
+- [ ] 没有征服。启动后，显示hadoop的userproxy相关错误，按照网上教程，修改了core-site，也没有用，是因为我用户名中间有点号原因？
