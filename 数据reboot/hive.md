@@ -30,3 +30,19 @@ location '/user/xiaoshuang.cui/hive_data/second_test';
 ## hiveserver2
 
 - [ ] 没有征服。启动后，显示hadoop的userproxy相关错误，按照网上教程，修改了core-site，也没有用，是因为我用户名中间有点号原因？
+
+上面的问题尝试解决了下。之前启动时是直接 ./hiveserver2，这样是以xiaoshuang.cui的身份启动，xml中的配置无法生效，导致在beeline上用任何账号登陆都失败。
+***我现在基本确定了是用户名有点号，导致xml配置失效。因为我用sudo -uroot ./hiveserver2 启动后，下面的配置能生效***
+
+```xml
+<property>
+  <name>hadoop.proxyuser.root.hosts</name>
+  <value>*</value>
+</property>
+<property>
+  <name>hadoop.proxyuser.root.groups</name>
+  <value>*</value>
+</property>
+```
+
+### 用户代理机制
