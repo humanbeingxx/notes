@@ -46,3 +46,9 @@ location '/user/xiaoshuang.cui/hive_data/second_test';
 ```
 
 ### 用户代理机制
+
+### SQL
+
+#### 注意事项
+
+- 使用split将数据切分成array时，如果数据是空字符串，结果是包含一个空字符串的array，而不是空array

@@ -1,5 +1,23 @@
 # 各种命令
 
+## top
+
+### cache和buffer的区别
+
+从一般角度来说，cache是用来加速数据的下一次访问速度。例如L1 cache, L2cache, 将主内存数据缓存，提高cpu访问数据速度。
+buffer保存数据直到数据被传输到其他地方，一般是解决不同设备处理数据速度差异的。
+
+再举例，网页播放视频时，进度条提前缓冲，是为了解决下载和播放速度不一致的问题，将数据提前下载以供播放。当视频播放完，下一次再播放时，浏览器会将之前的视频保存起来，这就是缓存的功能。
+
+top命令中的cache，buffer分别对应 Page cache, Buffer cache。
+
+Page cache 文件系统层级的缓存，磁盘读取的文件数据存放到这里。修改之后标记为脏数据，等写时机到了，写回磁盘。
+Buffer cache 磁盘等块设备的缓冲区。
+
+下图是两个cache和磁盘的关系（新版系统貌似不是这样，写入时可以从Page cache直接写）
+
+![两个cache和磁盘的关系](./attach/page_buffer_cache.jpg)
+
 ## sort
 
 sort [-bcfMnrtk][源文件][-o 输出文件]
@@ -34,6 +52,16 @@ rsync -rzcv --delete --chmod='a=rX,u+w' --rsync-path='sudo rsync' 项目目录/*
 
 1. 删除偶数行 g/^/+1 d
 2. 删除奇数行 g/^/d|m.
+
+## lsof(lists openfiles)
+
+常用选项：
+
+1. `-i [46][protocol][@hostname|hostaddr][:service|port]` 46表示IP4,IP6, protocol是TCP,UDP。例如 lsof -iTCP :8080
+2. lsof -p PID 查看进程打开了哪些文件。
+3. lsof -u uid 查看uid用户打开的文件。
+4. lsof file 查看file被哪些进程打开。
+5. lsof -c xxx 查看指定命令（包含指定字符xxx）打开的文件
 
 ## 解压与压缩
 
@@ -78,7 +106,7 @@ sudo tar -xvf ~/tomcat.tar
 
 例如 sudo tar -xvf ~/tomcat.tar home/q/www/fuwu_xcd/cache 解压cache目录至当前目录
 
-#### 如何解压至当前目录?
+#### 如何解压至当前目录
 
 需要用-P参数，压缩和解压时都需要。
 
@@ -91,3 +119,10 @@ sudo tar -xvf ~/tomcat.tar
 ### 查看
 
 tar -ztvf scripts.tar.gz
+
+## 内核空间、用户空间
+
+内核空间是内核代码运行的地方，可以调用系统的一切资源。
+用户空间是运行用户代码的地方，需要调用系统资源时，必须通过系统接口调用。
+
+time xxx 可以看到执行命令时的各个空间时间消耗。

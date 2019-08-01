@@ -2,7 +2,7 @@
 
 ## 配置
 
-boot配置优先顺序
+boot配置优先顺序（从高到低）
 
 - 命令行参数
 - 来自java:comp/env的丹IDI属性；
@@ -24,6 +24,12 @@ boot配置优先顺序
 ### 条件装配
 
 @Conditional(TestCondition. class)
+
+### profile指定方式
+
+1. application-{profile}.properties，同时，在application.properties中指定：spring.profiles.active=dev
+2. 命令行启动时加上 --spring.profiles.active=dev
+3. jvm参数，-Dspring.profiles.active=dev
 
 ## mvc
 
@@ -548,3 +554,7 @@ public static RedisCacheConfiguration defaultCacheConfig() {
 }
 
 ```
+
+## 遇到的坑
+
+springboot用jar包方式启动时，无法用File的方式读取resource下面的文件，需要用 ClassPathResource.getInputStream，从流中读取。

@@ -79,3 +79,7 @@ cell = rowkey + cf + cq
 ## rowkey的设计
 
 rowkey是唯一可能用成索引的地方。如果不设计好rowkey，条件查询只能全表扫描在过滤了。
+
+rowkey是byte[]，按照字典顺序排序。在rowkey上建索引，其实也就是对rowkey做一次数据冗余。
+
+## LSM(The Log-Structured Merge-Tree 日志结构合并树)
