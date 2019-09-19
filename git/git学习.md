@@ -120,3 +120,11 @@ git rev-list A..B
 git rm 删除已经提交的文件，并将删除操作提交到暂存区。不能删除只提交到暂存区的文件  ->  error: the following file has changes staged in the index
 
 git rm --cached 从暂存区删除，但是工作区保留。
+
+#### git cherry-pick
+
+从已有的commit中引入修改。
+
+git cherry-pick `commitId`
+
+*如果pick时没有冲突，则会只引入commit引入的修改；如果pick有冲突，解决后，会将commit和之前的修改都引入。*

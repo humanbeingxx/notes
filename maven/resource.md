@@ -125,4 +125,11 @@ resource中有三个文件1.properties, 2.properties, 3.properties
 - 如果配置的文件没有冲突，可以同时生效
 - 冲突时，比如build中exclude，profile中include，最终会include；如果是profile中exclude，build中exclude，还是会include
 
+## maven resource和springboot的profile关系
+
+maven resource插件，可以控制根据参数中的profile选择使用哪些文件。最终target文件夹中不一定会包含所有文件。
+springboot不对文件动手脚，而是根据参数选用不同的文件。
+
+如果对最终生成的文件没有特殊要求，可以直接用springboot机制。
+
 ## TODO 遇到其他阴险的问题继续补充

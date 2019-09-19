@@ -8,6 +8,30 @@ kmodule文件中如果有两个session的default=true，则使用时拿不到def
 
 ### StatelessSession
 
+## 语法
+
+基本形式
+
+rule "the name of rule"
+
+when
+    condition
+then
+    action
+end
+
+使用 $ 绑定一个变量 例如 $con : Condition(value > 10)
+可以用绑定变量表示两个条件关联，例如 Fire($room:room) Sprinkler(room == $room)
+
+关联和不关联的区别：
+关联 Fire($room:room) Sprinkler(room == $room) -> select * from Fire, Sprinkler
+不关联 Fire() Sprinkler() -> select * from Fire, Sprinkler where Fire.room = Sprinkler.room
+
+可以直接调用变量的set方法修改值，也可以使用modify方法。区别是引擎能检查到modify导致的数据变化，重新计算规则。
+modify(fact-expression){
+<修改Fact 属性的表达式>[,<修改Fact 属性的表达式>*]
+}
+
 ## rule
 
 ### methods vs rules
@@ -274,7 +298,7 @@ session.fireAllRules();
     </tr>
     <tr bgcolor="#d4e3e5" onmouseover="this.style.backgroundColor='#ffff66';" onmouseout="this.style.backgroundColor='#d4e3e5';">
       <td>IMMEDIATE</td>
-      <td>the propagation is performed immediately </td>
+      <td>the propagation is pevrformed immediately </td>
     </tr>
 <tr bgcolor="#d4e3e5" onmouseover="this.style.backgroundColor='#ffff66';" onmouseout="this.style.backgroundColor='#d4e3e5';">
       <td>EAGER</td>
@@ -903,7 +927,6 @@ $eventA.endTimestamp > $eventB.endTimestamp
 *From Baidu*
 
 > 正向推理又称数据驱动推理、演绎推理（相对于逆向推理、归纳推理），是按照由条件推出结论的方向进行的推理方式，它从一组事实出发，使用一定的推理规则，来证明目标事实或命题的成立。一般的推理过程是先向综合数据库提供一些初始已知事实，控制系统利用这些数据与知识库中的知识进行匹配，被触发的知识，将其结论作为新的事实添加到综合数据库中。重复上述过程，用更新过的综合数据库中的事实再与知识库中另一条知识匹配，将其结论更新至综合数据库中，直到没有可匹配的新知识和不再有新的事实加入到综合数据库中为止。然后测试是否得到解，有解则返回解，无解则提示运行失败。
-
 
 ### KRR (knowledge representation and reasoning)
 

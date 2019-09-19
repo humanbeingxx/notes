@@ -161,3 +161,7 @@ hadoop jar jars/data_study-1.0.0.jar priv.cxs.data.WordCount
 ## to be read
 
 http://blog.51cto.com/datainsight/1423475
+
+## shuffle
+
+![shuffle过程](../attach/mr的shuffle过程.png)
