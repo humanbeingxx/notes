@@ -34,3 +34,9 @@ func use()  {
 
 1. pointer method可以修改入参，但是如果参数是value，会复制原value，导致方法中的修改对原value无效。
 2. 并不是任何时候都能拿到value的地址。例如 A{}.methodPointer()会报`cannot call pointer method on xx`和`cannot take the address of xx`
+
+## 关于IO
+
+### Reader
+
+任何时候 Read 返回了读取的字节数，都应该优先 处理这些读取到的字节，再去检查 EOF 错误值或者其他错误值。
