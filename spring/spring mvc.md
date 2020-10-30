@@ -86,6 +86,12 @@ org.springframework.web.servlet.ViewResolver=org.springframework.web.servlet.vie
 返回一个viewName会用到ViewNameMethodReturnValueHandler。
 这个handler会拼好ModelAndView，在DispatcherServlet#render中使用。render首先使用注册好的viewResolvers定位到view，再调用view.render。最后通过tomcat返回给前端（这个是tomcat的源码）。
 
+#### 一个知识点
+
+spring默认使用jackson进行json序列化，对应的messageConverter是 MappingJackson2MessageConverter 。如果路径中有jackson相关类，会自动加载进来。在springboot-web中也是默认包含了jackson的。
+
+当返回的对象，没有get方法时，会抛出一个“没有合适的converter”异常，但是实际上是有 MappingJackson2MessageConverter 的。原因是当 MappingJackson2MessageConverter 进行write时，发现对象type没有任何可以访问的属性（代码在com.fasterxml.jackson.databind.ser.BeanSerializerBuilder#build中），会使用一个UnknownTypeSerializer，最终会抛出异常。
+
 #### 不同的handler
 
 - ModelAndViewMethodReturnValueHandler 判断返回值是否是ModelAndView

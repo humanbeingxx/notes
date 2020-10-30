@@ -182,3 +182,62 @@ java.lang.reflect.Proxy#newProxyInstance
 
 1. 根据传入的interface[]，生成一个实现了class二进制文件。这个新class实现了所有传入的inertface。
 2. 调用新class的构造器，入参是InvocationHandler。
+
+## spring aop的新发现
+
+在不同版本的spring中，before around after afterReturning 执行顺序不同。
+
+### 不同版本执行顺序
+
+5.2.8 执行顺序
+
+@Around-before
+@Before
+user1 calling
+@AfterReturning
+@After
+@Around-after
+
+5.1.2 执行顺序
+
+@Around-before
+@Before
+user1 calling
+@Around-after
+@After
+@AfterReturning
+
+### 内部排序
+
+首先是注解类型的排序。
+
+5.1.2   Around.class, Before.class, After.class, AfterReturning.class
+5.2.8   Around.class, Before.class, After.class, AfterReturning.class
+
+两个版本一致。其次，org.springframework.aop.framework.autoproxy.AbstractAdvisorAutoProxyCreator#findEligibleAdvisors
+方法中又进行了一次排序
+
+5.1.2  logResult(AfterReturning), logCall(After), logTime(Around), logParam(Before) 和排序不一致
+5.2.8  logTime(Around), logParam(Before), logCall(After), logResult(AfterReturning) 和排序一致
+
+org.springframework.aop.aspectj.autoproxy.AspectJAwareAdvisorAutoProxyCreator#sortAdvisors中会排序
+
+5.2.8  org.aspectj.util.PartialOrder.SortObject#addDirectedLinks   before.compare(around) == 0
+5.1.2  org.aspectj.util.PartialOrder.SortObject#addDirectedLinks   before.compare(around) == 1
+
+org.springframework.aop.aspectj.autoproxy.AspectJPrecedenceComparator#comparePrecedenceWithinAspect 会根据是否是after类型和declaredOrder进行再排序。
+
+在5.1.2版本中，declaredOrder会按 Around.class, Before.class, After.class, AfterReturning.class, AfterThrowing.class 顺序赋值，但是在5.2.8中赋值为0。
+
+具体原因如下：
+
+// Prior to Spring Framework 5.2.7, advisors.size() was supplied as the declarationOrderInAspect
+// to getAdvisor(...) to represent the "current position" in the declared methods list.
+// However, since Java 7 the "current position" is not valid since the JDK no longer
+// returns declared methods in the order in which they are declared in the source code.
+// Thus, we now hard code the declarationOrderInAspect to 0 for all advice methods
+// discovered via reflection in order to support reliable advice ordering across JVM launches.
+// Specifically, a value of 0 aligns with the default value used in
+// AspectJPrecedenceComparator.getAspectDeclarationOrder(Advisor).
+
+大概意思是由于java7不再按照代码顺序返回declared methods，所以spring为了提高在不同jvm下的可靠性，将declaredOrder赋值为0。
