@@ -116,3 +116,67 @@ son.choice(new HuaWei());
 上面的代码，实际会先静态分派，在动态分派。
 静态分派时，会考察静态类型和参数类型，属于多（宗量）分派。实际生成的是Father.choice(IPhone)和Father.choice(HuaWei)。
 动态分派时，只考虑方法接收对象的实际类型，属于单分派。
+
+## 反射中的方法调用
+
+method.invoke()方法，有下面几点原理：
+
+- 每次获取method时，并不是直接new一个method，而是用ReflectionFactory.copyMethod复制一个。其内部调用了Method.copy方法。
+
+```java
+    Method copy() {
+        // This routine enables sharing of MethodAccessor objects
+        // among Method objects which refer to the same underlying
+        // method in the VM. (All of this contortion is only necessary
+        // because of the "accessibility" bit in AccessibleObject,
+        // which implicitly requires that new java.lang.reflect
+        // objects be fabricated for each reflective call on Class
+        // objects.)
+        if (this.root != null)
+            throw new IllegalArgumentException("Can not copy a non-root Method");
+
+        Method res = new Method(clazz, name, parameterTypes, returnType,
+                                exceptionTypes, modifiers, slot, signature,
+                                annotations, parameterAnnotations, annotationDefault);
+        res.root = this;
+        // Might as well eagerly propagate this if already present
+        res.methodAccessor = methodAccessor;
+        return res;
+    }
+```
+
+其中最重要的就是共享了一个root和methodAccessor对象。当然第一次获取方法时，用的是getDeclaredMethods0本地方法获取的。
+
+- invoke方法调用是通过MethodAccessor完成的。有三个实现
+  - DelegatingMethodAccessorImpl，委托类，初次默认生成的就是这个。
+  - NativeMethodAccessorImpl，当调用次数较少时，使用native方法invoke。
+  - 动态生成的，当调用次数到一定次数（15次），用字节码生成一个高效的调用器。内部大致原理是直接调用方法对象的方法，例如：
+  
+```java
+void func(String var){}
+
+//生成的字节码大致如下
+
+public Object invoke(Object obj, Object[] args)   
+    throws IllegalArgumentException, InvocationTargetException {
+    // prepare the target and parameters
+    if (obj == null) throw new NullPointerException();
+    try {
+        A target = (A) obj;
+        if (args.length != 1) throw new IllegalArgumentException();
+        String arg0 = (String) args[0];
+    } catch (ClassCastException e) {
+        throw new IllegalArgumentException(e.toString());
+    } catch (NullPointerException e) {
+        throw new IllegalArgumentException(e.toString());
+    }
+    // make the invocation
+    try {
+        target.func(arg0);
+    } catch (Throwable t) {
+        throw new InvocationTargetException(t);
+    }
+}
+```
+
+内部先是做了参数的还原，其中对参数个数、类型的判断都是结合原方法动态计算出来的。再是直接调用对象的方法 target.func(arg0)。
