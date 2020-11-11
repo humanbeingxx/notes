@@ -157,7 +157,7 @@ void func(String var){}
 
 //生成的字节码大致如下
 
-public Object invoke(Object obj, Object[] args)   
+public Object invoke(Object obj, Object[] args)
     throws IllegalArgumentException, InvocationTargetException {
     // prepare the target and parameters
     if (obj == null) throw new NullPointerException();
