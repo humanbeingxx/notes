@@ -112,6 +112,12 @@ InvokerInvocationHandler -> MockClusterInvoker -> AbstractCluster$InterceptorInv
 
 上述过程都是在用户线程中完成的，还没有涉及到dubbo的io线程。也没有设计到请求、响应的编码解码过程。
 
+### 提供方的响应过程
+
+当netty的worker线程监听到请求事件后将请求交给配置好的handler处，配置的是在DubboProtocol中定义的一个ExchangeHandler的内部类。会调用该类的reply方法。reply中，会从DubboProtocol本地的invoker缓存中找到对应的invoker，调用后返回一个future。
+
+当future完成时，会通过channel将response返回。
+
 ### dubbo异步调用的使用和原理
 
 在xml配置和@DubboReference中都可以定义async属性，true为异步调用。
