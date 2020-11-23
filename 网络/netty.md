@@ -63,3 +63,35 @@ try {
 ```
 
 callDecode将cumulation作为inBuffer，内部会调用具体的decode实现。LineBasedFrameDecoder的实现中，首先使用ByteBuf#getByte方法找到换行符，如果找不到，则返回null，null不会放到输出中。注意这里使用的是getByte方法，不会修改buffer的read index。从而如果是个半包，则不会修改cumulation的read index，后续读到的数据会追加到cumulation中，直到形成一个完整的包。同样的，如果读取中遇到了换行符，则会在读取数据中修改cumulation的read index，使得cumulation不会包含之前的数据包。
+
+## netty NIO处理
+
+### boss线程
+
+boss线程用于监听accept事件。
+
+下面看下boss线程的初始化：
+
+1. 当netty初始化时，一般是在调用`serverBootstrap.bind`方法。
+2. 内部会调用`AbstractBootstrap#initAndRegister`初始化，其中就有代码`ChannelFuture regFuture = group().register(channel);`。这里的group()拿到的是bossGroup（也有可能是boss、worker共用一个group）。
+3. 经过多次调用链后，会到`io.netty.channel.AbstractChannel.AbstractUnsafe#register`方法，此时由于执行线程是外部线程，比如main线程，会用eventLoop执行具体的register操作。这里的eventLoop是bossGroup中的eventloop。
+4. register0方法中最终会调用`selectionKey = javaChannel().register(((NioEventLoop) eventLoop().unwrap()).selector, 0, this);`。这里为什么interestops会是0呢？这里只是register，也就是做了个channel和selector的绑定，accept的设置是在后续完成的。
+5. 这里的channel是`NioServerSocketChannel`，内部有个属性`readInterestOp`，默认初始化就是16(accept)。在register完成后，会调用`doBind`。这里主要是最终调用java底层的bind，`sun.nio.ch.ServerSocketChannelImpl#bind`。那么accept是这里设置的吗？sorry，还不是。
+6. doBind之后会判断channel的状态是不是从!active变成了active，如果是，会再添加一个异步任务执行`pipeline.fireChannelActive();`
+7. `DefaultChannelPipeline#fireChannelActive`判断channel是否是autoRead，是的话，会最终调用`io.netty.channel.nio.AbstractNioChannel#doBeginRead`。这里会将当前的readInterestOp设置到selector中，完成accept的设置。
+
+*需要注意整个流程中线程的切换。在调用doRegister之前都是用户线程，也就是上面第3步之前。此后会向boss线程池中添加任务，并用boss线程执行*
+
+监听到accept事件后，会将任务转发给worker线程。
+
+1. 监听到accept事件，注意这里对key的判断是`readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0`，read和accept都会处理。
+2. 调用pipeline.read会走到`ServerBootstrap.ServerBootstrapAcceptor#channelRead`，此时会拿到childGroup，并register上当前的channel。
+3. 执行时，由于使用的eventloop是child，但是当前线程是boss，所以会异步执行。（即使boss和worker是共用线程池，由于使用了eventLoopGroup.next方法，只要线程多于一个，还是会选择到另外的线程）。
+4. 此时的channel是`NioSocketChannel`，内部的readInterestOp是1，也就是read。后续的流程和accept初始化差不多，只是由于当前worker线程，会立即执行。
+
+#### 其他点
+
+1. 为什么没有看到判断key.isWritable，或者注册监听write事件？
+   > key.isWritable()是表示Socket可写,网络不出现阻塞情况下,一直是可以写的,所认一直为true.一般我们不注册OP_WRITE事件。
+2. 网上有说boss线程池即使有多个线程，也只有一个会工作，这个是不对的。
+   > 以NioEventLoop为例，每次执行完run，都会将自己再作为一个runnable传入给boss线程池，所以还是会选择池中的一个线程，不是只有一个。

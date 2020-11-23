@@ -104,3 +104,65 @@ spring默认使用jackson进行json序列化，对应的messageConverter是 Mapp
 - MapMethodProcessor 判断返回值是否是map
 - ModelAttributeMethodProcessor 这个处理器上annotationNotRequired为true，只要不是简单类型，都会判断为true。
 - 其他。。。
+
+## 高级知识点
+
+### spring websocket中bean和tomcat的关系
+
+对于一般的请求，都是走DispatchServlet，然后找到对应的RequestMappingHandler，匹配后再处理，这里最终都会落到相应的Controller的方法中执行。
+
+但是在ws中，作用方式和上述不一样。
+
+spring配置如下：
+
+```java
+@Configuration
+public class WebSocketConfig {
+
+    @Bean
+    public ServerEndpointExporter serverEndpointExporter() {
+        return new ServerEndpointExporter();
+    }
+}
+
+@ServerEndpoint("/ws/asset")
+@Component
+public class WebSocketServer {}
+```
+
+config，主要用于在tomcat中注册下面定义的server。具体的是`ServerEndpointExporter`实现了`SmartInitializingSingleton`，在其`afterSingletonsInstantiated`方法中，会进行endpoint的注册。这些endpoints就是在spring容器中，实现了ServerEndpoint注解的bean。
+然后在ServerContainer中注册上bean对应的class。
+
+建立ws过程中，根据ws请求的url路径，匹配到对应的server，然后new出一个server实例。也就是一个ws连接对应的其实是一个单独的server，不是bean。
+
+上面可以看到，是通过ServerContainer来在spring和web容器中传递了endpoint信息，那么这个container是怎么来的呢？
+
+1. spring加载时，生成普通bean之前，会调用`onRefresh(); // Initialize other special beans in specific context subclasses.`。
+2. web项目中的context是`ServletWebServerApplicationContext`，其 onRefresh 会`createWebServer`。
+3. 会生成一个tomcatServer，同时进行初始化，此时tomcat会调用 tomcat.start()。
+4. 此时会一层层调用Lifecycle，最终会落到`TomcatEmbeddedContext.start()`。过程中，会创建一个`ApplicationContext`，并得到一个ServletContext。这里的context都是catalina下的context，而不是spring的。
+5. 启动完成后，会调用context中的`initializers.onStartup()`，进行一些初始化的后置操作。这里是`TomcatStarter`。
+6. `TomcatStarter`会进一步调用自己的`initializers`，这里会包含一个`ServletWebServerApplicationContext`的lamda表达式，最后会调用`selfInitialize(ServletContext servletContext)`，将servletContext保存。而这个WsServerContainer就是ServletContext的一个attribute。
+
+下面看设置这个attribute的过程。
+
+1. 其实就是在上面的5之后，会调用`listenerStart()`，ws下就是一个WsContextListener。调用`contextInitialized`方法进行初始化。
+2. 如果`javax.websocket.server.ServerContainer`这个属性是null，则初始化一个。
+3. 初始化很简单，就是`WsServerContainer sc = new WsServerContainer(servletContext);`，并加入attributes。
+
+#### ws发送请求时，怎么和后端的server做的对应
+
+总体来说，是在注册selector时，将server作为attachment传入了key中。当然这里不直接是server，外面有层层包装。包装顺序大致如下：
+
+key -> socketWrapper -> currentProcessor -> internalHttpUpgradeHandler -> wsFrame -> textMsgHandler -> pojo(就是我们的server)
+
+绑定过程（有推测成分）：
+
+1. ws最初是用普通http建立的，在processor中包含了一个upgradeToken，最终会根军这个生成一个处理ws的process `UpgradeProcessorInternal`。
+2. 处理io事件时，根据SocketWrapper的currentProcessor，拿到了`WsHttpUpgradeHandler`。
+3. handler初次调用时，会init。其中就包含了根据url找到对应的server class，并生成实例的过程。
+
+*有个容易混淆的点：SocketWrapper.currentProcessor和NioEndPoint$SocketProcessor，不是一个东西。可以理解成后者是一个调用框架，前者是具体的业务处理器，后者框架中会调用前者*
+
+从tomcat架构来说，绑定过程大致是：acceptor接收到http的upgrading类型请求，然后生成了wrapper。再将wrapper保存到channel后，通过event机制注册到poller中去。poller处理event，初次处理ws对应的event时，ocketWrapper.currentProcessor是null，最初会生成一个http11Processor，然后根据process的结果状态（upgrading），又生成一个UpgradeProcessorInternal处理器，并保存到wrapper中。此后会调用上面3中说的init，生成server实例。最后，调用`NioSocketWrapper#registerReadInterest`，将wrapper注册到poller中，`getPoller().add(this, SelectionKey.OP_READ);`。
+以后每次前端发数据，都会调用`NioSocketWrapper#registerReadInterest`将socket重新注册到poller中。
