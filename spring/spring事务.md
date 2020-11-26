@@ -77,7 +77,7 @@ public void deleteTwiceWithNestedTransactionInner(String name) {
 REQUIRES_NEW 完全是独立的提交和回滚。外部事务的提交和回滚不会影响内部。
 NESTED 只有等到外部事务提交，才会提交；内部事务回滚只会回到savepoint，这个是创建nested事务时设置的，而外部事务的回滚，会使内部事务一起回滚。
 
-### 事务方法调用非事务方法，为何非事务方法也在事务内部？
+### 事务方法调用非事务方法，为何非事务方法也在事务内部
 
 获取事务是在org.springframework.transaction.support.AbstractPlatformTransactionManager#getTransaction。如果参数TransactionDefinition是null，会生成默认的TransactionDefinition，这个默认的传播级别是required。
 

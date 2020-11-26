@@ -107,6 +107,25 @@ spring默认使用jackson进行json序列化，对应的messageConverter是 Mapp
 
 ## 高级知识点
 
+### war包启动spring时，dispatchServlet是怎么和tomcat关联上的
+
+用war包启动时，application需要实现`SpringBootServletInitializer`，通过依赖servlet3.0的自动扫描特性，完成加载。具体如下：
+
+1. servlet3.0中，启动tomcat会通过java SPI的形式，调用所有配置过的`ServletContainerInitializer`的`onStartup`方法。在spring.web就在`org/springframework/spring-web/5.3.1/spring-web-5.3.1.jar!/META-INF/services`中配置了`org.springframework.web.SpringServletContainerInitializer`，所以启动容器时会自动执行该类的startup方法。
+2. SpringServletContainerInitializer中，使用了注解`@HandlesTypes(WebApplicationInitializer.class)`，所有`WebApplicationInitializer`的实现类，都会被传入startup方法，依次被调用。而application实现的`SpringBootServletInitializer`就是实现了`WebApplicationInitializer`。
+3. `SpringBootServletInitializer`的onStartup方法中，主要是构建了一个`SpringApplication`对象，然后调用run方法。
+4. 在refresh时，会调用`createWebServer()`，但是由于此时拿到的`ServletContext`不是null(调用onStartup时作为参数传入的)，所以并不会用`ServletWebServerFactory`重新构建一个server，而是用一系列`ServletContextInitializer`进行初始化，其中就包含了`DispatcherServletRegistrationBean`。
+5. `DispatcherServletRegistrationBean`会调用`servletContext.addServlet`将dispatcherServlet加载到context中。
+6. 具体addServlet，是拿到context下的`StandardWrapper`，然后将servlet设置进去。这里的wrapper是和servlet的name对应的，每个不同名字的servlet都会有一个对应的wrapper。至此，servlet就注册到context中了。
+
+### 请求进来时，tomcat到dispatcherServlet的过程
+
+涉及到了tomcat的组件和请求过程，这块不清楚，暂时跳过。
+
+1. 通过负责监听端口的connector，找到对应的StandardService，再找到对应的engine，然后拿到pipeline，开始执行。
+2. 会执行到`StandardWrapperValve#invoke`，这里会通过`wrapper.allocate()`拿到servlet，即dispatcherServlet。
+3. 调用allocate时，由于使用的不是'singleThreadMode'，所以会直接返回已经注册好的servlet，即单例的servlet。虽然不会重新生成servlet实例，但是dispatcherServlet默认是懒加载，各种mapping还没有配置，这里会进行初始化。可以修改spring配置`spring.mvc.servlet.load-on-startup=1`。
+
 ### spring websocket中bean和tomcat的关系
 
 对于一般的请求，都是走DispatchServlet，然后找到对应的RequestMappingHandler，匹配后再处理，这里最终都会落到相应的Controller的方法中执行。
