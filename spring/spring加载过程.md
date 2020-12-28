@@ -151,6 +151,18 @@ protected Object getEarlyBeanReference(String beanName, RootBeanDefinition mbd, 
 }
 ```
 
+##### @Async循环依赖报错以及@Lazy解决
+
+@Async参与到循环依赖时可能会报错。例如有A,B两个service，其中A用了异步。如果先初始化A，会报错"its raw version as part of a circular reference"。
+
+- 报错的原因。
+
+@Async将service中的方法改成异步执行，底层也是用代理完成。但是这个注解用了一个单独的processor，`AsyncAnnotationBeanPostProcessor`，会在执行`exposedObject = initializeBean(beanName, exposedObject, mbd);`时调用，生成一个代理类。此时返回的exposedObject是另一个对象，在后续执行到
+`if (exposedObject == bean) { exposedObject = earlySingletonReference;}`时，等号已经不成立，开始走下面的判断，而默认`allowRawInjectionDespiteWrapping`是false，报异常。
+
+解决上面的问题，可以在B中对A的依赖加上@Lazy。底层原理是注入时，如果是Lazy，那么生成一个代理，在getTarget()时才进行初始化。
+具体的是`DefaultListableBeanFactory#resolveDependency`中会尝试生成一个lazy代理，`Object result = getAutowireCandidateResolver().getLazyResolutionProxyIfNecessary(descriptor, requestingBeanName);`，在实际获取target时，才调用beanFactory的`doResolveDependency`。由于没有提前调用`doResolveDependency`，因此也就不会生成A的早期实例，`DefaultSingletonBeanRegistry.earlySingletonObjects`中不会有beanA。
+
 #### 插曲
 
 spring会默认加载一些环境变量 environment = systemProperties + systemEnvironment
