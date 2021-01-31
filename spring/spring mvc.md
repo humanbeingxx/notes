@@ -12,7 +12,7 @@
     3. 执行完后，是applyPostHandle。这里会执行interceptors的postHandle。
 4. 见3.2。如果是要返回一个页面，执行的handler不一样。比如简单返回一个jsp，则是一个ViewNameMethodReturnValueHandler，将view的name设置到ModelAndViewContainer中。
 5. 返回一个ModelAndView到DispatcherServlet。
-6. 用加载好的ViewResolverl解析view，项目中常配置InternalResourceViewResolver，解析内部资源。
+6. 用加载好的ViewResolver解析view，项目中常配置InternalResourceViewResolver，解析内部资源。
 7. 解析完成后返回一个View。
     1. 在返回给前端前，还有一些后续处理。调用HandlerExecutionChain#triggerAfterCompletion，会执行interceptors的afterCompletion。
     2. 发布一个ServletRequestHandledEvent。
