@@ -75,7 +75,7 @@ follower接收commit，如果和最新的一个proposal的事务id不一致，fo
 
 对于zk，下面的情况：leader提交proposal后，follower返回了ack，但是leader在发送commit命令前挂了，这个proposal是需要被应用到集群的。
 
-是怎么保证这一点的呢？整个集群中除了原leader，没有节点实际提交了改proposal。在其他节点中这个proposal被保存到了磁盘，但是没有提交应用到内存中。如果重新选举时自己使用的ZXID是本节点中已经commit的事务id，那么就不会包含这样的proposal。
+是怎么保证这一点的呢？整个集群中除了原leader，没有节点实际提交了该proposal。在其他节点中这个proposal被保存到了磁盘，但是没有提交应用到内存中。如果重新选举时自己使用的ZXID是本节点中已经commit的事务id，那么就不会包含这样的proposal。
 
 目前比较接受网上的一种说明：
 
